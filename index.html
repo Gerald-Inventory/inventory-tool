@@ -3,35 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Scanner</title>
+    <title>Inventory Pro - Secure</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
         .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
-        h2 { text-align: center; color: #333; margin-top: 0; }
+        /* Login Screen Styles */
+        #loginScreen { text-align: center; padding: 40px 10px; }
+        .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
         
-        /* Scanner Styling */
+        /* Main Tool Styles (Hidden by default) */
+        #mainTool { display: none; }
+        
         #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; border: none !important; }
-        
         input[type="text"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        
         .btn-group { display: flex; gap: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; }
         .btn-scan { background: #28a745; }
-
-        /* Vertical Card Result Styling */
-        .item-card { 
-            background: #fff; border: 1px solid #eee; border-radius: 8px; 
-            margin-top: 20px; padding: 0; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
+        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
-        .result-row:last-child { border-bottom: none; }
-        .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 13px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
-        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; }
-        
+        .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
+        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-all; }
         .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
         .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
     </style>
@@ -39,27 +33,47 @@
 <body>
 
 <div class="container">
-    <h2>Inventory Pro</h2>
-    <div id="fileStatus" class="status">Loading data.csv...</div>
-    
-    <div id="reader"></div>
-
-    <input type="text" id="itemCodeInput" placeholder="Scan or Type Item Code(s)">
-    
-    <div class="btn-group">
-        <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
-        <button onclick="searchCSV()">Search</button>
+    <div id="loginScreen">
+        <h2>Restricted Access</h2>
+        <p>Please enter your access code</p>
+        <input type="password" id="passInput" class="login-input" placeholder="Password">
+        <button onclick="checkPassword()">Login</button>
+        <p id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect Password</p>
     </div>
 
-    <div id="result"></div>
+    <div id="mainTool">
+        <h2 id="toolTitle">Inventory Pro</h2>
+        <div id="fileStatus" class="status">Loading data...</div>
+        <div id="reader"></div>
+        <input type="text" id="itemCodeInput" placeholder="Scan or Type Item Code(s)">
+        <div class="btn-group">
+            <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
+            <button onclick="searchCSV()">Search</button>
+        </div>
+        <div id="result"></div>
+    </div>
 </div>
 
 <script>
+    // --- CONFIGURATION ---
+    const MY_PASSWORD = "1234"; // CHANGE YOUR PASSWORD HERE
+    // ---------------------
+
     let csvData = [];
     let html5QrCode;
 
-    // 1. Auto-load CSV from GitHub
-    window.onload = function() {
+    function checkPassword() {
+        const entered = document.getElementById('passInput').value;
+        if (entered === MY_PASSWORD) {
+            document.getElementById('loginScreen').style.display = 'none';
+            document.getElementById('mainTool').style.display = 'block';
+            loadInventory();
+        } else {
+            document.getElementById('loginError').style.display = 'block';
+        }
+    }
+
+    function loadInventory() {
         Papa.parse('data.csv', {
             download: true,
             header: true,
@@ -72,37 +86,28 @@
                 document.getElementById('fileStatus').innerText = "❌ data.csv not found";
             }
         });
-    };
+    }
 
-    // 2. Barcode/QR Scanner Logic
     function startScanner() {
         html5QrCode = new Html5Qrcode("reader");
         const config = { fps: 10, qrbox: { width: 250, height: 150 } };
-
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             document.getElementById('itemCodeInput').value = decodedText;
-            searchCSV(); // Automatically search when a code is scanned
+            searchCSV();
             stopScanner();
-        }).catch((err) => {
-            console.error("Camera error:", err);
-            alert("Camera access denied or not found.");
-        });
+        }).catch(() => alert("Camera access denied."));
     }
 
     function stopScanner() {
         if (html5QrCode) {
-            html5QrCode.stop().then(() => {
-                document.getElementById('reader').innerHTML = "";
-            });
+            html5QrCode.stop().then(() => document.getElementById('reader').innerHTML = "");
         }
     }
 
-    // 3. Search Logic with Vertical Layout
     function searchCSV() {
         const input = document.getElementById('itemCodeInput').value;
         const resultDiv = document.getElementById('result');
         const codesToSearch = input.split(',').map(c => c.trim().toLowerCase()).filter(c => c !== "");
-        
         if (csvData.length === 0) return;
 
         const foundItems = csvData.filter(row => {
@@ -114,7 +119,6 @@
             let html = "";
             foundItems.forEach(item => {
                 html += `<div class="item-card">`;
-                // Generate a row for every column in your CSV
                 for (const [key, value] of Object.entries(item)) {
                     html += `
                         <div class="result-row">
