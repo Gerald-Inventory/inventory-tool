@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dual-Code Inventory Scanner</title>
+    <title>Inventory Pro - Auto-Close Scan</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -38,17 +38,17 @@
 
     <div id="mainTool">
         <h2 style="text-align:center;">Inventory Pro</h2>
-        <div id="fileStatus" class="status">Loading data...</div>
+        <div id="fileStatus" class="status">Loading database...</div>
         
         <div id="reader"></div>
         
         <div class="btn-group">
-            <button id="startBtn" class="btn-scan" onclick="startScanner()">Start Camera</button>
-            <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Close Camera</button>
+            <button id="startBtn" class="btn-scan" onclick="startScanner()">Camera Scan</button>
+            <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
         </div>
 
-        <input type="text" id="itemCodeInput" placeholder="Manually enter code or scan">
-        <button onclick="searchCSV()" style="width: 100%;">Manual Search</button>
+        <input type="text" id="itemCodeInput" placeholder="Enter Code or Scan">
+        <button onclick="searchCSV()" style="width: 100%;">Search</button>
         
         <div id="result"></div>
     </div>
@@ -83,6 +83,9 @@
     }
 
     function startScanner() {
+        // Clear previous results when starting a new scan
+        document.getElementById('result').innerHTML = "";
+        
         document.getElementById('startBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'block';
         
@@ -91,19 +94,32 @@
 
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             document.getElementById('itemCodeInput').value = decodedText;
-            // Immediate search after scan
+            
+            // 1. AUTO-STOP the camera
+            stopScanner(); 
+            
+            // 2. TRIGGER the search
             searchCSV(); 
-            // Optional: stopScanner(); // Uncomment if you want camera to close after one scan
-        }).catch(err => alert("Camera error: " + err));
+            
+        }).catch(err => {
+            console.error(err);
+            alert("Camera error. Please ensure permissions are granted.");
+            stopScanner();
+        });
     }
 
     function stopScanner() {
-        if (html5QrCode) {
+        if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop().then(() => {
                 document.getElementById('startBtn').style.display = 'block';
                 document.getElementById('stopBtn').style.display = 'none';
                 document.getElementById('reader').innerHTML = "";
-            });
+            }).catch(err => console.error("Failed to stop scanner", err));
+        } else {
+            // Fallback UI reset
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('reader').innerHTML = "";
         }
     }
 
@@ -112,7 +128,6 @@
         const resultDiv = document.getElementById('result');
         if (!input || csvData.length === 0) return;
 
-        // Searches across both columns
         const foundItems = csvData.filter(row => {
             const col1 = (row.Item_Code || "").toString().toLowerCase();
             const col2 = (row.Item_scan_code || "").toString().toLowerCase();
@@ -130,7 +145,7 @@
             });
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<p class="error">Not found in Code or Scan Code.</p>`;
+            resultDiv.innerHTML = `<p class="error">Not found in Database.</p>`;
         }
     }
 </script>
