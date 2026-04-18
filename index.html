@@ -1,0 +1,36 @@
+let csvData = [];
+const csvUrl = 'data.csv'; // Name of your file on GitHub
+
+// Automatically load the file when the page opens
+window.onload = function() {
+    Papa.parse(csvUrl, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            csvData = results.data;
+            document.getElementById('searchArea').style.display = 'block';
+            console.log("Inventory Loaded");
+        },
+        error: function(err) {
+            alert("Could not find data.csv. Make sure it is uploaded to GitHub.");
+        }
+    });
+};
+
+function searchCSV() {
+    const input = document.getElementById('itemCodeInput').value;
+    const resultDiv = document.getElementById('result');
+    const codesToSearch = input.split(',').map(code => code.trim()).filter(code => code !== "");
+    
+    if (codesToSearch.length === 0) return;
+
+    const foundItems = csvData.filter(row => codesToSearch.includes(row.Item_Code));
+    
+    let tableHtml = `<table><thead><tr><th>Item Code</th><th>Description</th><th>WH Qty</th><th>Sale Value</th></tr></thead><tbody>`;
+    foundItems.forEach(item => {
+        tableHtml += `<tr><td>${item.Item_Code}</td><td>${item.Item_Desc}</td><td>${item.WH_Qty}</td><td>${item.Sale_Value}</td></tr>`;
+    });
+    tableHtml += `</tbody></table>`;
+    resultDiv.innerHTML = foundItems.length > 0 ? tableHtml : "No items found.";
+}
