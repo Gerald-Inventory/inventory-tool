@@ -3,42 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Search</title>
+    <title>Inventory Scanner</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f8f9fa; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
-        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
-        .status { font-size: 0.8em; color: #666; margin-bottom: 10px; }
-        .table-container { overflow-x: auto; margin-top: 20px; }
-        table { border-collapse: collapse; width: 100%; font-size: 14px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background-color: #f4f4f4; white-space: nowrap; }
-        .error { color: #d9534f; margin-top: 10px; font-weight: bold; }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        h2 { text-align: center; color: #333; margin-top: 0; }
+        
+        /* Scanner Styling */
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; border: none !important; }
+        
+        input[type="text"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        .btn-group { display: flex; gap: 10px; }
+        button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        .btn-scan { background: #28a745; }
+
+        /* Vertical Card Result Styling */
+        .item-card { 
+            background: #fff; border: 1px solid #eee; border-radius: 8px; 
+            margin-top: 20px; padding: 0; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
+        .result-row:last-child { border-bottom: none; }
+        .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 13px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
+        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; }
+        
+        .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
+        .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Inventory Search</h2>
-    <div id="fileStatus" class="status">Checking for data.csv...</div>
+    <h2>Inventory Pro</h2>
+    <div id="fileStatus" class="status">Loading data.csv...</div>
     
-    <div id="fallbackUpload" style="display:none; margin-bottom: 20px;">
-        <p style="font-size: 0.9em; color: red;">data.csv not found on server. Please upload manually:</p>
-        <input type="file" id="csvFile" accept=".csv">
+    <div id="reader"></div>
+
+    <input type="text" id="itemCodeInput" placeholder="Scan or Type Item Code(s)">
+    
+    <div class="btn-group">
+        <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
+        <button onclick="searchCSV()">Search</button>
     </div>
 
-    <input type="text" id="itemCodeInput" placeholder="Enter Item Codes (e.g. 101, 102)">
-    <button onclick="searchCSV()">Search</button>
-
-    <div id="result" class="table-container"></div>
+    <div id="result"></div>
 </div>
 
 <script>
     let csvData = [];
+    let html5QrCode;
 
-    // 1. AUTO-LOAD ATTEMPT
+    // 1. Auto-load CSV from GitHub
     window.onload = function() {
         Papa.parse('data.csv', {
             download: true,
@@ -46,63 +66,67 @@
             skipEmptyLines: true,
             complete: function(results) {
                 csvData = results.data;
-                document.getElementById('fileStatus').innerText = "✅ data.csv loaded successfully.";
+                document.getElementById('fileStatus').innerText = "✅ Inventory Loaded";
             },
             error: function() {
-                document.getElementById('fileStatus').innerText = "❌ data.csv not found.";
-                document.getElementById('fallbackUpload').style.display = 'block';
+                document.getElementById('fileStatus').innerText = "❌ data.csv not found";
             }
         });
     };
 
-    // 2. MANUAL UPLOAD ATTEMPT
-    document.getElementById('csvFile').addEventListener('change', function(e) {
-        const file = e.target.files[0];
-        Papa.parse(file, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                csvData = results.data;
-                alert("Manual file loaded!");
-            }
-        });
-    });
+    // 2. Barcode/QR Scanner Logic
+    function startScanner() {
+        html5QrCode = new Html5Qrcode("reader");
+        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
 
+        html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+            document.getElementById('itemCodeInput').value = decodedText;
+            searchCSV(); // Automatically search when a code is scanned
+            stopScanner();
+        }).catch((err) => {
+            console.error("Camera error:", err);
+            alert("Camera access denied or not found.");
+        });
+    }
+
+    function stopScanner() {
+        if (html5QrCode) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').innerHTML = "";
+            });
+        }
+    }
+
+    // 3. Search Logic with Vertical Layout
     function searchCSV() {
         const input = document.getElementById('itemCodeInput').value;
         const resultDiv = document.getElementById('result');
         const codesToSearch = input.split(',').map(c => c.trim().toLowerCase()).filter(c => c !== "");
         
-        if (csvData.length === 0) {
-            resultDiv.innerHTML = '<p class="error">No data loaded. Please ensure data.csv is uploaded.</p>';
-            return;
-        }
+        if (csvData.length === 0) return;
 
-        // We use toLowerCase() to make searching easier/less strict
         const foundItems = csvData.filter(row => {
-            const rowCode = (row.Item_Code || row.item_code || "").toString().toLowerCase();
+            const rowCode = (row.Item_Code || "").toString().toLowerCase();
             return codesToSearch.includes(rowCode);
         });
 
         if (foundItems.length > 0) {
-            let tableHtml = `<table><thead><tr>`;
-            // Get headers from the first found item
-            Object.keys(foundItems[0]).forEach(key => {
-                tableHtml += `<th>${key}</th>`;
-            });
-            tableHtml += `</tr></thead><tbody>`;
-
+            let html = "";
             foundItems.forEach(item => {
-                tableHtml += `<tr>`;
-                Object.values(item).forEach(val => {
-                    tableHtml += `<td>${val}</td>`;
-                });
-                tableHtml += `</tr>`;
+                html += `<div class="item-card">`;
+                // Generate a row for every column in your CSV
+                for (const [key, value] of Object.entries(item)) {
+                    html += `
+                        <div class="result-row">
+                            <div class="label">${key.replace(/_/g, ' ')}</div>
+                            <div class="value">${value || '-'}</div>
+                        </div>`;
+                }
+                html += `</div>`;
             });
-            tableHtml += `</tbody></table>`;
-            resultDiv.innerHTML = tableHtml;
+            resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<p class="error">No matches found for "${input}".</p>`;
+            resultDiv.innerHTML = `<p class="error">Item "${input}" not found.</p>`;
         }
     }
 </script>
