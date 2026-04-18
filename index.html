@@ -1,36 +1,111 @@
-let csvData = [];
-const csvUrl = 'data.csv'; // Name of your file on GitHub
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventory Search</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f8f9fa; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        input[type="text"] { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 16px; }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
+        .status { font-size: 0.8em; color: #666; margin-bottom: 10px; }
+        .table-container { overflow-x: auto; margin-top: 20px; }
+        table { border-collapse: collapse; width: 100%; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f4f4f4; white-space: nowrap; }
+        .error { color: #d9534f; margin-top: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
 
-// Automatically load the file when the page opens
-window.onload = function() {
-    Papa.parse(csvUrl, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        complete: function(results) {
-            csvData = results.data;
-            document.getElementById('searchArea').style.display = 'block';
-            console.log("Inventory Loaded");
-        },
-        error: function(err) {
-            alert("Could not find data.csv. Make sure it is uploaded to GitHub.");
+<div class="container">
+    <h2>Inventory Search</h2>
+    <div id="fileStatus" class="status">Checking for data.csv...</div>
+    
+    <div id="fallbackUpload" style="display:none; margin-bottom: 20px;">
+        <p style="font-size: 0.9em; color: red;">data.csv not found on server. Please upload manually:</p>
+        <input type="file" id="csvFile" accept=".csv">
+    </div>
+
+    <input type="text" id="itemCodeInput" placeholder="Enter Item Codes (e.g. 101, 102)">
+    <button onclick="searchCSV()">Search</button>
+
+    <div id="result" class="table-container"></div>
+</div>
+
+<script>
+    let csvData = [];
+
+    // 1. AUTO-LOAD ATTEMPT
+    window.onload = function() {
+        Papa.parse('data.csv', {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                csvData = results.data;
+                document.getElementById('fileStatus').innerText = "✅ data.csv loaded successfully.";
+            },
+            error: function() {
+                document.getElementById('fileStatus').innerText = "❌ data.csv not found.";
+                document.getElementById('fallbackUpload').style.display = 'block';
+            }
+        });
+    };
+
+    // 2. MANUAL UPLOAD ATTEMPT
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                csvData = results.data;
+                alert("Manual file loaded!");
+            }
+        });
+    });
+
+    function searchCSV() {
+        const input = document.getElementById('itemCodeInput').value;
+        const resultDiv = document.getElementById('result');
+        const codesToSearch = input.split(',').map(c => c.trim().toLowerCase()).filter(c => c !== "");
+        
+        if (csvData.length === 0) {
+            resultDiv.innerHTML = '<p class="error">No data loaded. Please ensure data.csv is uploaded.</p>';
+            return;
         }
-    });
-};
 
-function searchCSV() {
-    const input = document.getElementById('itemCodeInput').value;
-    const resultDiv = document.getElementById('result');
-    const codesToSearch = input.split(',').map(code => code.trim()).filter(code => code !== "");
-    
-    if (codesToSearch.length === 0) return;
+        // We use toLowerCase() to make searching easier/less strict
+        const foundItems = csvData.filter(row => {
+            const rowCode = (row.Item_Code || row.item_code || "").toString().toLowerCase();
+            return codesToSearch.includes(rowCode);
+        });
 
-    const foundItems = csvData.filter(row => codesToSearch.includes(row.Item_Code));
-    
-    let tableHtml = `<table><thead><tr><th>Item Code</th><th>Description</th><th>WH Qty</th><th>Sale Value</th></tr></thead><tbody>`;
-    foundItems.forEach(item => {
-        tableHtml += `<tr><td>${item.Item_Code}</td><td>${item.Item_Desc}</td><td>${item.WH_Qty}</td><td>${item.Sale_Value}</td></tr>`;
-    });
-    tableHtml += `</tbody></table>`;
-    resultDiv.innerHTML = foundItems.length > 0 ? tableHtml : "No items found.";
-}
+        if (foundItems.length > 0) {
+            let tableHtml = `<table><thead><tr>`;
+            // Get headers from the first found item
+            Object.keys(foundItems[0]).forEach(key => {
+                tableHtml += `<th>${key}</th>`;
+            });
+            tableHtml += `</tr></thead><tbody>`;
+
+            foundItems.forEach(item => {
+                tableHtml += `<tr>`;
+                Object.values(item).forEach(val => {
+                    tableHtml += `<td>${val}</td>`;
+                });
+                tableHtml += `</tr>`;
+            });
+            tableHtml += `</tbody></table>`;
+            resultDiv.innerHTML = tableHtml;
+        } else {
+            resultDiv.innerHTML = `<p class="error">No matches found for "${input}".</p>`;
+        }
+    }
+</script>
+
+</body>
+</html>
