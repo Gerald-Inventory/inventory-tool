@@ -3,25 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Secure</title>
+    <title>Dual-Code Inventory Scanner</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
         .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        
-        /* Login Screen Styles */
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
-        
-        /* Main Tool Styles (Hidden by default) */
         #mainTool { display: none; }
-        
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; border: none !important; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; }
         input[type="text"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        .btn-group { display: flex; gap: 10px; }
-        button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .btn-scan { background: #28a745; }
+        .btn-stop { background: #dc3545; display: none; }
         .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
         .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
@@ -34,37 +30,37 @@
 
 <div class="container">
     <div id="loginScreen">
-        <h2>Restricted Access</h2>
-        <p>Please enter your access code</p>
+        <h2>Secure Access</h2>
         <input type="password" id="passInput" class="login-input" placeholder="Password">
         <button onclick="checkPassword()">Login</button>
         <p id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect Password</p>
     </div>
 
     <div id="mainTool">
-        <h2 id="toolTitle">Inventory Pro</h2>
+        <h2 style="text-align:center;">Inventory Pro</h2>
         <div id="fileStatus" class="status">Loading data...</div>
+        
         <div id="reader"></div>
-        <input type="text" id="itemCodeInput" placeholder="Scan or Type Item Code(s)">
+        
         <div class="btn-group">
-            <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
-            <button onclick="searchCSV()">Search</button>
+            <button id="startBtn" class="btn-scan" onclick="startScanner()">Start Camera</button>
+            <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Close Camera</button>
         </div>
+
+        <input type="text" id="itemCodeInput" placeholder="Manually enter code or scan">
+        <button onclick="searchCSV()" style="width: 100%;">Manual Search</button>
+        
         <div id="result"></div>
     </div>
 </div>
 
 <script>
-    // --- CONFIGURATION ---
-    const MY_PASSWORD = "1234"; // CHANGE YOUR PASSWORD HERE
-    // ---------------------
-
+    const MY_PASSWORD = "1234"; 
     let csvData = [];
     let html5QrCode;
 
     function checkPassword() {
-        const entered = document.getElementById('passInput').value;
-        if (entered === MY_PASSWORD) {
+        if (document.getElementById('passInput').value === MY_PASSWORD) {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainTool').style.display = 'block';
             loadInventory();
@@ -80,39 +76,47 @@
             skipEmptyLines: true,
             complete: function(results) {
                 csvData = results.data;
-                document.getElementById('fileStatus').innerText = "✅ Inventory Loaded";
+                document.getElementById('fileStatus').innerText = "✅ Database Ready";
             },
-            error: function() {
-                document.getElementById('fileStatus').innerText = "❌ data.csv not found";
-            }
+            error: function() { document.getElementById('fileStatus').innerText = "❌ data.csv missing"; }
         });
     }
 
     function startScanner() {
+        document.getElementById('startBtn').style.display = 'none';
+        document.getElementById('stopBtn').style.display = 'block';
+        
         html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+        const config = { fps: 15, qrbox: { width: 280, height: 180 } };
+
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             document.getElementById('itemCodeInput').value = decodedText;
-            searchCSV();
-            stopScanner();
-        }).catch(() => alert("Camera access denied."));
+            // Immediate search after scan
+            searchCSV(); 
+            // Optional: stopScanner(); // Uncomment if you want camera to close after one scan
+        }).catch(err => alert("Camera error: " + err));
     }
 
     function stopScanner() {
         if (html5QrCode) {
-            html5QrCode.stop().then(() => document.getElementById('reader').innerHTML = "");
+            html5QrCode.stop().then(() => {
+                document.getElementById('startBtn').style.display = 'block';
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('reader').innerHTML = "";
+            });
         }
     }
 
     function searchCSV() {
-        const input = document.getElementById('itemCodeInput').value;
+        const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
         const resultDiv = document.getElementById('result');
-        const codesToSearch = input.split(',').map(c => c.trim().toLowerCase()).filter(c => c !== "");
-        if (csvData.length === 0) return;
+        if (!input || csvData.length === 0) return;
 
+        // Searches across both columns
         const foundItems = csvData.filter(row => {
-            const rowCode = (row.Item_Code || "").toString().toLowerCase();
-            return codesToSearch.includes(rowCode);
+            const col1 = (row.Item_Code || "").toString().toLowerCase();
+            const col2 = (row.Item_scan_code || "").toString().toLowerCase();
+            return col1 === input || col2 === input;
         });
 
         if (foundItems.length > 0) {
@@ -120,20 +124,15 @@
             foundItems.forEach(item => {
                 html += `<div class="item-card">`;
                 for (const [key, value] of Object.entries(item)) {
-                    html += `
-                        <div class="result-row">
-                            <div class="label">${key.replace(/_/g, ' ')}</div>
-                            <div class="value">${value || '-'}</div>
-                        </div>`;
+                    html += `<div class="result-row"><div class="label">${key.replace(/_/g, ' ')}</div><div class="value">${value || '-'}</div></div>`;
                 }
                 html += `</div>`;
             });
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<p class="error">Item "${input}" not found.</p>`;
+            resultDiv.innerHTML = `<p class="error">Not found in Code or Scan Code.</p>`;
         }
     }
 </script>
-
 </body>
 </html>
