@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Auto-Close Scan</title>
+    <title>Inventory Pro - High Sensitivity</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,22 +12,15 @@
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
         #mainTool { display: none; }
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; background: #000; }
         
-        /* UPDATED INPUT STYLE */
-        input[type="number"], input[type="text"], input[type="password"] { 
+        input[type="number"] { 
             width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
         }
 
-        /* HIDE SPINNER ARROWS FOR NUMBER INPUT */
-        input::-webkit-outer-spin-button,
-        input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-        input[type=number] {
-            -moz-appearance: textfield;
-        }
+        /* Hide arrows on number input */
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
 
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
@@ -86,9 +79,7 @@
 
     function loadInventory() {
         Papa.parse('data.csv', {
-            download: true,
-            header: true,
-            skipEmptyLines: true,
+            download: true, header: true, skipEmptyLines: true,
             complete: function(results) {
                 csvData = results.data;
                 document.getElementById('fileStatus').innerText = "✅ Database Ready";
@@ -102,8 +93,21 @@
         document.getElementById('startBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'block';
         
-        html5QrCode = new Html5Qrcode("reader");
-        const config = { fps: 15, qrbox: { width: 280, height: 180 } };
+        // Use 'true' to enable native Barcode Detector API if the phone supports it
+        html5QrCode = new Html5Qrcode("reader", { 
+            experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
+        });
+
+        const config = { 
+            fps: 25, // Higher frame rate for faster capture
+            qrbox: { width: 300, height: 150 }, // Rectangular box is better for standard barcodes
+            aspectRatio: 1.777778, // Request 16:9 aspect ratio
+            videoConstraints: {
+                facingMode: "environment",
+                width: { min: 640, ideal: 1280, max: 1920 }, // Force HD resolution
+                height: { min: 480, ideal: 720, max: 1080 }
+            }
+        };
 
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             document.getElementById('itemCodeInput').value = decodedText;
@@ -111,7 +115,7 @@
             searchCSV(); 
         }).catch(err => {
             console.error(err);
-            alert("Camera error. Please ensure permissions are granted.");
+            alert("Check camera permissions or use a different browser.");
             stopScanner();
         });
     }
@@ -122,7 +126,7 @@
                 document.getElementById('startBtn').style.display = 'block';
                 document.getElementById('stopBtn').style.display = 'none';
                 document.getElementById('reader').innerHTML = "";
-            }).catch(err => console.error("Failed to stop scanner", err));
+            }).catch(err => console.error("Stop error", err));
         } else {
             document.getElementById('startBtn').style.display = 'block';
             document.getElementById('stopBtn').style.display = 'none';
@@ -132,7 +136,6 @@
 
     function searchCSV() {
         const rawInput = document.getElementById('itemCodeInput').value;
-        // With type="number", we ensure it's handled as a clean string for comparison
         const input = rawInput.toString().trim().toLowerCase();
         const resultDiv = document.getElementById('result');
         
