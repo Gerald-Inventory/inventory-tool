@@ -13,7 +13,22 @@
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
         #mainTool { display: none; }
         #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; }
-        input[type="text"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        
+        /* UPDATED INPUT STYLE */
+        input[type="number"], input[type="text"], input[type="password"] { 
+            width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
+        }
+
+        /* HIDE SPINNER ARROWS FOR NUMBER INPUT */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .btn-scan { background: #28a745; }
@@ -31,7 +46,7 @@
 <div class="container">
     <div id="loginScreen">
         <h2>Secure Access</h2>
-        <input type="password" id="passInput" class="login-input" placeholder="Password">
+        <input type="password" id="passInput" class="login-input" placeholder="Password" inputmode="numeric">
         <button onclick="checkPassword()">Login</button>
         <p id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect Password</p>
     </div>
@@ -47,7 +62,7 @@
             <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
         </div>
 
-        <input type="text" id="itemCodeInput" placeholder="Enter Code or Scan">
+        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Enter Code or Scan">
         <button onclick="searchCSV()" style="width: 100%;">Search</button>
         
         <div id="result"></div>
@@ -83,9 +98,7 @@
     }
 
     function startScanner() {
-        // Clear previous results when starting a new scan
         document.getElementById('result').innerHTML = "";
-        
         document.getElementById('startBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'block';
         
@@ -94,13 +107,8 @@
 
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
             document.getElementById('itemCodeInput').value = decodedText;
-            
-            // 1. AUTO-STOP the camera
             stopScanner(); 
-            
-            // 2. TRIGGER the search
             searchCSV(); 
-            
         }).catch(err => {
             console.error(err);
             alert("Camera error. Please ensure permissions are granted.");
@@ -116,7 +124,6 @@
                 document.getElementById('reader').innerHTML = "";
             }).catch(err => console.error("Failed to stop scanner", err));
         } else {
-            // Fallback UI reset
             document.getElementById('startBtn').style.display = 'block';
             document.getElementById('stopBtn').style.display = 'none';
             document.getElementById('reader').innerHTML = "";
@@ -124,8 +131,11 @@
     }
 
     function searchCSV() {
-        const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
+        const rawInput = document.getElementById('itemCodeInput').value;
+        // With type="number", we ensure it's handled as a clean string for comparison
+        const input = rawInput.toString().trim().toLowerCase();
         const resultDiv = document.getElementById('result');
+        
         if (!input || csvData.length === 0) return;
 
         const foundItems = csvData.filter(row => {
