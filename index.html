@@ -6,13 +6,33 @@
     <title>Inventory Pro - High Sensitivity</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
         .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
         #mainTool { display: none; }
-        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; background: #000; }
+        
+        /* Scanner Window */
+        #reader { 
+            width: 100%; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            margin-bottom: 15px; 
+            background: #000; 
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        /* Success Flash Animation */
+        .scan-success {
+            animation: success-glow 0.4s ease-out;
+        }
+        @keyframes success-glow {
+            0% { box-shadow: inset 0 0 60px #28a745; border: 4px solid #28a745; }
+            100% { box-shadow: inset 0 0 0px transparent; border: 0px solid transparent; }
+        }
         
         input[type="number"] { 
             width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; 
@@ -26,6 +46,8 @@
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
         .btn-scan { background: #28a745; }
         .btn-stop { background: #dc3545; display: none; }
+        #torchBtn { background: #ffc107; color: black; display: none; }
+        
         .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
         .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
@@ -35,6 +57,8 @@
     </style>
 </head>
 <body>
+
+<audio id="beepSound" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
 
 <div class="container">
     <div id="loginScreen">
@@ -53,6 +77,7 @@
         <div class="btn-group">
             <button id="startBtn" class="btn-scan" onclick="startScanner()">Camera Scan</button>
             <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
+            <button id="torchBtn" onclick="toggleTorch()">Flashlight</button>
         </div>
 
         <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Enter Code or Scan">
@@ -66,6 +91,7 @@
     const MY_PASSWORD = "1234"; 
     let csvData = [];
     let html5QrCode;
+    let isTorchOn = false;
 
     function checkPassword() {
         if (document.getElementById('passInput').value === MY_PASSWORD) {
@@ -88,34 +114,40 @@
         });
     }
 
-    function startScanner() {
+    async function startScanner() {
         document.getElementById('result').innerHTML = "";
         document.getElementById('startBtn').style.display = 'none';
         document.getElementById('stopBtn').style.display = 'block';
         
-        // Use 'true' to enable native Barcode Detector API if the phone supports it
         html5QrCode = new Html5Qrcode("reader", { 
             experimentalFeatures: { useBarCodeDetectorIfSupported: true } 
         });
 
         const config = { 
-            fps: 25, // Higher frame rate for faster capture
-            qrbox: { width: 300, height: 150 }, // Rectangular box is better for standard barcodes
-            aspectRatio: 1.777778, // Request 16:9 aspect ratio
+            fps: 30,
+            qrbox: { width: 350, height: 200 }, 
+            aspectRatio: 1.777778,
             videoConstraints: {
                 facingMode: "environment",
-                width: { min: 640, ideal: 1280, max: 1920 }, // Force HD resolution
-                height: { min: 480, ideal: 720, max: 1080 }
+                width: { ideal: 1920 },
+                height: { ideal: 1080 }
             }
         };
 
         html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+            triggerFeedback();
             document.getElementById('itemCodeInput').value = decodedText;
-            stopScanner(); 
-            searchCSV(); 
+            
+            // Short delay to show the visual "flash" success
+            setTimeout(() => {
+                stopScanner(); 
+                searchCSV(); 
+            }, 300);
+
+        }).then(() => {
+            checkTorchSupport();
         }).catch(err => {
             console.error(err);
-            alert("Check camera permissions or use a different browser.");
             stopScanner();
         });
     }
@@ -123,15 +155,47 @@
     function stopScanner() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop().then(() => {
-                document.getElementById('startBtn').style.display = 'block';
-                document.getElementById('stopBtn').style.display = 'none';
-                document.getElementById('reader').innerHTML = "";
+                resetUI();
             }).catch(err => console.error("Stop error", err));
         } else {
-            document.getElementById('startBtn').style.display = 'block';
-            document.getElementById('stopBtn').style.display = 'none';
-            document.getElementById('reader').innerHTML = "";
+            resetUI();
         }
+    }
+
+    function resetUI() {
+        document.getElementById('startBtn').style.display = 'block';
+        document.getElementById('stopBtn').style.display = 'none';
+        document.getElementById('torchBtn').style.display = 'none';
+        document.getElementById('reader').innerHTML = "";
+        isTorchOn = false;
+    }
+
+    function triggerFeedback() {
+        // 1. Haptic Vibration
+        if (navigator.vibrate) navigator.vibrate(100);
+
+        // 2. Audio Beep
+        const beep = document.getElementById('beepSound');
+        beep.play().catch(e => console.log("Audio blocked"));
+
+        // 3. Visual Flash
+        const reader = document.getElementById('reader');
+        reader.classList.add('scan-success');
+        setTimeout(() => reader.classList.remove('scan-success'), 400);
+    }
+
+    function checkTorchSupport() {
+        const track = html5QrCode.getRunningTrack();
+        if (track && track.getCapabilities().torch) {
+            document.getElementById('torchBtn').style.display = 'block';
+        }
+    }
+
+    function toggleTorch() {
+        isTorchOn = !isTorchOn;
+        html5QrCode.applyVideoConstraints({
+            advanced: [{ torch: isTorchOn }]
+        }).catch(err => console.warn("Torch error:", err));
     }
 
     function searchCSV() {
