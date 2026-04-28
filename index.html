@@ -24,14 +24,23 @@
             border: 2px solid #eee;
         }
 
-        /* Success Flash Animation */
         .scan-success { animation: success-glow 0.4s ease-out; }
         @keyframes success-glow {
             0% { box-shadow: inset 0 0 60px #28a745; border: 4px solid #28a745; }
             100% { box-shadow: inset 0 0 0px transparent; border: 2px solid #eee; }
         }
         
-        input[type="number"] { width: 100%; padding: 15px; margin: 10px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        select, input[type="number"] { 
+            width: 100%; 
+            padding: 15px; 
+            margin: 5px 0 15px 0; 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            box-sizing: border-box; 
+            font-size: 16px;
+            background-color: #fff;
+        }
+
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -45,6 +54,7 @@
         .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-all; }
         .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
         .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
+        label { font-size: 12px; font-weight: bold; color: #666; margin-left: 5px; }
     </style>
 </head>
 <body>
@@ -71,8 +81,15 @@
             <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
         </div>
 
+        <label for="storeFilter">FILTER BY STORE</label>
+        <select id="storeFilter">
+            <option value="">All Stores</option>
+        </select>
+
+        <label for="itemCodeInput">ITEM CODE</label>
         <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Enter Code or Scan">
-        <button onclick="searchCSV()" style="width: 100%;">Search</button>
+        
+        <button onclick="searchCSV()" style="width: 100%;">Search Inventory</button>
         <div id="result"></div>
     </div>
 </div>
@@ -99,8 +116,23 @@
             complete: function(results) {
                 csvData = results.data;
                 document.getElementById('fileStatus').innerText = "✅ Database Ready";
+                populateStoreFilter();
             },
-            error: function() { document.getElementById('fileStatus').innerText = "❌ data.csv missing"; }
+            error: function() { 
+                document.getElementById('fileStatus').innerText = "❌ data.csv missing"; 
+            }
+        });
+    }
+
+    function populateStoreFilter() {
+        const storeFilter = document.getElementById('storeFilter');
+        // Extract unique stores from the "Store" column
+        const stores = [...new Set(csvData.map(item => item.Store).filter(Boolean))];
+        stores.sort().forEach(store => {
+            const opt = document.createElement('option');
+            opt.value = store;
+            opt.textContent = store;
+            storeFilter.appendChild(opt);
         });
     }
 
@@ -114,21 +146,19 @@
         startBtn.innerText = "Connecting...";
         startBtn.disabled = true;
 
-        // Cleanup existing instance to free hardware
         if (html5QrCode) {
             try { await html5QrCode.clear(); } catch (e) {}
         }
 
         try {
             html5QrCode = new Html5Qrcode("reader");
-            
             const config = { 
                 fps: 20, 
                 qrbox: { width: 280, height: 180 },
                 aspectRatio: 1.777778,
                 videoConstraints: {
                     facingMode: "environment",
-                    width: { ideal: 640 }, // "Safe" resolution to prevent NotReadableError
+                    width: { ideal: 640 },
                     height: { ideal: 480 }
                 }
             };
@@ -146,7 +176,7 @@
         } catch (err) {
             console.error("Scanner Error:", err);
             if (err.includes("NotReadableError")) {
-                alert("Camera Busy: Close all other apps (Camera, WhatsApp) and try again.");
+                alert("Camera Busy: Close all other apps and try again.");
             } else {
                 alert("Camera Error: " + err);
             }
@@ -196,13 +226,20 @@
 
     function searchCSV() {
         const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
+        const selectedStore = document.getElementById('storeFilter').value;
         const resultDiv = document.getElementById('result');
-        if (!input || csvData.length === 0) return;
+        
+        if (csvData.length === 0) return;
 
         const foundItems = csvData.filter(row => {
             const code1 = (row.Item_Code || "").toString().toLowerCase();
             const code2 = (row.Item_scan_code || "").toString().toLowerCase();
-            return code1 === input || code2 === input;
+            const itemStore = (row.Store || "");
+
+            const matchesCode = input === "" || (code1 === input || code2 === input);
+            const matchesStore = selectedStore === "" || itemStore === selectedStore;
+
+            return matchesCode && matchesStore;
         });
 
         if (foundItems.length > 0) {
@@ -216,7 +253,7 @@
             });
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<p class="error">Not found in Database.</p>`;
+            resultDiv.innerHTML = `<p class="error">No items found matching those criteria.</p>`;
         }
     }
 </script>
