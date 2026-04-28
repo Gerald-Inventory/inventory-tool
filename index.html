@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - High Stability</title>
+    <title>Inventory Pro - Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -39,9 +39,7 @@
             box-sizing: border-box; 
             font-size: 16px;
             background-color: #fff;
-            outline: none;
         }
-        select:focus, input:focus { border-color: #007bff; }
 
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
@@ -55,8 +53,8 @@
         .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
         .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-all; }
         .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
-        .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; padding: 20px; background: #fff1f0; border-radius: 8px; }
-        label { font-size: 11px; font-weight: bold; color: #007bff; margin-left: 5px; text-transform: uppercase; }
+        .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
+        label { font-size: 11px; font-weight: bold; color: #666; margin-left: 5px; text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -83,15 +81,14 @@
             <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
         </div>
 
-        <label for="storeFilter">Select Store Location</label>
+        <label for="storeFilter">Filter by Store</label>
         <select id="storeFilter" onchange="searchCSV()">
             <option value="">All Stores</option>
         </select>
 
-        <label for="itemCodeInput">Item Code / barcode</label>
-        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Enter Code or Scan" oninput="searchCSV()">
+        <label for="itemCodeInput">Item Code</label>
+        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Scan or Type" oninput="searchCSV()">
         
-        <button onclick="searchCSV()" style="width: 100%;">Refresh Results</button>
         <div id="result"></div>
     </div>
 </div>
@@ -128,7 +125,6 @@
 
     function populateStoreFilter() {
         const storeFilter = document.getElementById('storeFilter');
-        // Extract unique stores, filter out empties, and sort
         const stores = [...new Set(csvData.map(item => item.Store).filter(Boolean))];
         stores.sort().forEach(store => {
             const opt = document.createElement('option');
@@ -141,34 +137,39 @@
     async function startScanner() {
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        
         if (startBtn.disabled) return;
         document.getElementById('result').innerHTML = "";
         startBtn.innerText = "Connecting...";
         startBtn.disabled = true;
 
-        if (html5QrCode) {
-            try { await html5QrCode.clear(); } catch (e) {}
-        }
-
         try {
+            if (html5QrCode) { await html5QrCode.clear(); }
             html5QrCode = new Html5Qrcode("reader");
+            
             const config = { 
                 fps: 20, 
-                qrbox: { width: 280, height: 180 },
-                aspectRatio: 1.777778,
-                videoConstraints: { facingMode: "environment" }
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
             };
 
-            await html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-                triggerFeedback();
-                document.getElementById('itemCodeInput').value = decodedText;
-                stopScanner();
-                searchCSV(); // This will trigger the search with the current store filter
-            });
+            await html5QrCode.start(
+                { facingMode: "environment" }, 
+                config, 
+                (decodedText) => {
+                    triggerFeedback();
+                    document.getElementById('itemCodeInput').value = decodedText;
+                    stopScanner();
+                    searchCSV();
+                }
+            );
 
             startBtn.style.display = 'none';
             stopBtn.style.display = 'block';
-            checkTorchSupport();
+            
+            // Fixed Torch Logic: Wait a moment for camera to fully engage
+            setTimeout(() => checkTorchSupport(), 1000);
+
         } catch (err) {
             alert("Camera Error: " + err);
             resetUI();
@@ -181,7 +182,9 @@
     function stopScanner() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop().then(() => resetUI()).catch(() => resetUI());
-        } else { resetUI(); }
+        } else {
+            resetUI();
+        }
     }
 
     function resetUI() {
@@ -200,42 +203,40 @@
         setTimeout(() => reader.classList.remove('scan-success'), 400);
     }
 
+    // FIXED: Correct way to check for torch in newer Html5Qrcode versions
     function checkTorchSupport() {
-        const track = html5QrCode.getRunningTrack();
-        if (track && track.getCapabilities().torch) {
-            document.getElementById('torchBtn').style.display = 'block';
+        try {
+            const track = html5QrCode.getRunningTrack();
+            if (track && track.getCapabilities && track.getCapabilities().torch) {
+                document.getElementById('torchBtn').style.display = 'block';
+            }
+        } catch (e) {
+            console.log("Torch capability check failed or not supported on this device/browser.");
         }
     }
 
     function toggleTorch() {
         isTorchOn = !isTorchOn;
-        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] })
-            .catch(e => console.warn("Torch failed", e));
+        html5QrCode.applyVideoConstraints({
+            advanced: [{ torch: isTorchOn }]
+        }).catch(e => {
+            console.warn("Torch failed", e);
+            isTorchOn = false;
+        });
     }
 
-    // MAIN SEARCH LOGIC
     function searchCSV() {
         const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
         const selectedStore = document.getElementById('storeFilter').value;
         const resultDiv = document.getElementById('result');
         
-        // Don't search if database isn't loaded
         if (csvData.length === 0) return;
-
-        // If both fields are empty, clear results and stop
-        if (input === "" && selectedStore === "") {
-            resultDiv.innerHTML = "";
-            return;
-        }
 
         const foundItems = csvData.filter(row => {
             const code1 = (row.Item_Code || "").toString().toLowerCase();
             const code2 = (row.Item_scan_code || "").toString().toLowerCase();
             const itemStore = (row.Store || "");
 
-            // Logic: 
-            // If code is entered, it must match. 
-            // If store is selected, it must match.
             const matchesCode = input === "" || (code1 === input || code2 === input);
             const matchesStore = selectedStore === "" || itemStore === selectedStore;
 
@@ -247,16 +248,18 @@
             foundItems.forEach(item => {
                 html += `<div class="item-card">`;
                 for (const [key, value] of Object.entries(item)) {
-                    html += `<div class="result-row">
-                                <div class="label">${key.replace(/_/g, ' ')}</div>
-                                <div class="value">${value || '-'}</div>
-                             </div>`;
+                    html += `<div class="result-row"><div class="label">${key.replace(/_/g, ' ')}</div><div class="value">${value || '-'}</div></div>`;
                 }
                 html += `</div>`;
             });
             resultDiv.innerHTML = html;
         } else {
-            resultDiv.innerHTML = `<p class="error">No matches found for this code in ${selectedStore || 'any store'}.</p>`;
+            // Show error only if user actually typed or selected something
+            if (input !== "" || selectedStore !== "") {
+                resultDiv.innerHTML = `<p class="error">Not found in ${selectedStore || 'Database'}.</p>`;
+            } else {
+                resultDiv.innerHTML = "";
+            }
         }
     }
 </script>
