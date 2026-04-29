@@ -41,11 +41,12 @@
             background-color: #fff;
         }
 
-        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
-        button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; transition: opacity 0.2s; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-scan { background: #28a745; }
         .btn-stop { background: #dc3545; display: none; }
+        .btn-reset { background: #6c757d; }
         #torchBtn { background: #ffc107; color: black; display: none; }
         
         .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -78,6 +79,7 @@
         <div class="btn-group">
             <button id="startBtn" class="btn-scan" onclick="startScanner()">Camera Scan</button>
             <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
+            <button id="resetBtn" class="btn-reset" onclick="fullReset()">🔄 Reset</button>
             <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
         </div>
 
@@ -125,6 +127,8 @@
 
     function populateStoreFilter() {
         const storeFilter = document.getElementById('storeFilter');
+        // Clear existing except first option
+        storeFilter.innerHTML = '<option value="">All Stores</option>';
         const stores = [...new Set(csvData.map(item => item.Store).filter(Boolean))];
         stores.sort().forEach(store => {
             const opt = document.createElement('option');
@@ -166,8 +170,6 @@
 
             startBtn.style.display = 'none';
             stopBtn.style.display = 'block';
-            
-            // Fixed Torch Logic: Wait a moment for camera to fully engage
             setTimeout(() => checkTorchSupport(), 1000);
 
         } catch (err) {
@@ -195,6 +197,22 @@
         isTorchOn = false;
     }
 
+    // NEW: Full Reset Functionality
+    function fullReset() {
+        // Stop camera if running
+        stopScanner();
+        
+        // Clear inputs and dropdowns
+        document.getElementById('itemCodeInput').value = "";
+        document.getElementById('storeFilter').selectedIndex = 0;
+        
+        // Clear results
+        document.getElementById('result').innerHTML = "";
+        
+        // Focus for manual entry
+        document.getElementById('itemCodeInput').focus();
+    }
+
     function triggerFeedback() {
         if (navigator.vibrate) navigator.vibrate(100);
         document.getElementById('beepSound').play().catch(() => {});
@@ -203,7 +221,6 @@
         setTimeout(() => reader.classList.remove('scan-success'), 400);
     }
 
-    // FIXED: Correct way to check for torch in newer Html5Qrcode versions
     function checkTorchSupport() {
         try {
             const track = html5QrCode.getRunningTrack();
@@ -211,7 +228,7 @@
                 document.getElementById('torchBtn').style.display = 'block';
             }
         } catch (e) {
-            console.log("Torch capability check failed or not supported on this device/browser.");
+            console.log("Torch capability check failed.");
         }
     }
 
@@ -243,7 +260,7 @@
             return matchesCode && matchesStore;
         });
 
-        if (foundItems.length > 0) {
+        if (foundItems.length > 0 && (input !== "" || selectedStore !== "")) {
             let html = "";
             foundItems.forEach(item => {
                 html += `<div class="item-card">`;
@@ -254,7 +271,6 @@
             });
             resultDiv.innerHTML = html;
         } else {
-            // Show error only if user actually typed or selected something
             if (input !== "" || selectedStore !== "") {
                 resultDiv.innerHTML = `<p class="error">Not found in ${selectedStore || 'Database'}.</p>`;
             } else {
