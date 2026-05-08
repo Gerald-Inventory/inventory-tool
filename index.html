@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Range Fix</title>
+    <title>Inventory Pro - Multi-Store & Range</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
+        .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
@@ -20,7 +20,6 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
         
-        /* THE RANGE BUTTON */
         #rangeBtn { 
             display: none; 
             width: 100%; 
@@ -31,50 +30,51 @@
             font-weight: bold; 
             margin: 10px 0; 
             border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 15px; overflow: hidden; }
+        .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
-        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; }
-        .value { padding: 10px; width: 60%; font-size: 14px; }
+        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
+        .value { padding: 10px; width: 60%; font-size: 14px; word-break: break-all; }
         
-        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 15px; }
+        /* Table Styling */
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 15px; background: #fff; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
-        .range-table th { background: #eee; padding: 10px; border: 1px solid #ddd; white-space: nowrap; }
-        .range-table td { padding: 10px; border: 1px solid #ddd; text-align: center; white-space: nowrap; }
+        .range-table th { background: #f1f3f5; padding: 12px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; text-transform: uppercase; font-size: 10px; }
+        .range-table td { padding: 10px; border: 1px solid #dee2e6; text-align: center; white-space: nowrap; }
         .highlight { background: #fff3cd !important; font-weight: bold; }
 
-        input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
-        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
+        input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; margin-left: 5px; }
+        h3 { color: #17a2b8; margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div id="loginScreen">
-        <h2>Inventory Login</h2>
-        <input type="password" id="passInput" class="login-input" placeholder="PIN" inputmode="numeric">
+        <h2>Inventory Pro</h2>
+        <input type="password" id="passInput" class="login-input" placeholder="Enter PIN" inputmode="numeric">
         <button onclick="checkPassword()">Login</button>
     </div>
 
     <div id="mainTool">
-        <div id="fileStatus" style="text-align:center; font-size:12px; color:gray;">Loading CSV...</div>
+        <div id="fileStatus" style="text-align:center; font-size:11px; color:gray; margin-bottom: 10px;">Checking Database...</div>
         <div id="reader"></div>
         
         <div class="btn-group">
-            <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
+            <button style="background:#28a745" onclick="startScanner()">Camera Scan</button>
             <button style="background:#6c757d" onclick="fullReset()">Reset</button>
         </div>
 
-        <label>Store</label>
+        <label>Store Filter</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Item Code</label>
-        <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()">
+        <label>Item Code (Internal or Scan)</label>
+        <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()" inputmode="numeric">
         
-        <!-- BUTTON STARTS HERE -->
-        <button id="rangeBtn" onclick="showRangeDetails()">📊 RANGE DETAILS</button>
+        <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE DETAILS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -85,7 +85,7 @@
     const PIN = "1234";
     let csvData = [];
     let html5QrCode;
-    let currentItem = null;
+    let currentFoundItems = []; // Array to store multiple store matches
 
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
@@ -100,31 +100,42 @@
             download: true, header: true, skipEmptyLines: true,
             complete: function(r) {
                 csvData = r.data;
-                document.getElementById('fileStatus').innerText = "✅ CSV Loaded";
-                const stores = [...new Set(csvData.map(i => i.Store).filter(Boolean))];
-                let opt = '<option value="">All Stores</option>';
-                stores.forEach(s => opt += `<option value="${s}">${s}</option>`);
-                document.getElementById('storeFilter').innerHTML = opt;
-                console.log("Headers found in CSV:", Object.keys(csvData[0]));
+                document.getElementById('fileStatus').innerText = "✅ Database Connected";
+                populateStores();
+            },
+            error: function() {
+                document.getElementById('fileStatus').innerText = "❌ data.csv Not Found";
             }
         });
     }
 
+    function populateStores() {
+        const stores = [...new Set(csvData.map(i => i.Store).filter(Boolean))].sort();
+        let opt = '<option value="">All Stores</option>';
+        stores.forEach(s => opt += `<option value="${s}">${s}</option>`);
+        document.getElementById('storeFilter').innerHTML = opt;
+    }
+
     async function startScanner() {
+        if (html5QrCode) { await html5QrCode.clear(); }
         html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+        await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
             document.getElementById('itemCodeInput').value = txt;
-            html5QrCode.stop();
-            searchCSV();
-        });
+            html5QrCode.stop().then(() => {
+                document.getElementById('reader').innerHTML = "";
+                searchCSV();
+            });
+        }).catch(err => alert("Camera error: " + err));
     }
 
     function fullReset() {
-        if(html5QrCode) html5QrCode.stop().catch(()=>{});
+        if(html5QrCode && html5QrCode.isScanning) html5QrCode.stop().catch(()=>{});
         document.getElementById('itemCodeInput').value = "";
+        document.getElementById('storeFilter').selectedIndex = 0;
         document.getElementById('result').innerHTML = "";
         document.getElementById('rangeResult').innerHTML = "";
         document.getElementById('rangeBtn').style.display = "none";
+        document.getElementById('reader').innerHTML = "";
     }
 
     function searchCSV() {
@@ -136,56 +147,73 @@
         document.getElementById('rangeResult').innerHTML = "";
         btn.style.display = "none";
 
-        if (!code) return;
+        if (!code) { res.innerHTML = ""; return; }
 
-        const found = csvData.find(row => {
-            const matchesCode = row.Item_Code == code || row.Item_scan_code == code;
-            const matchesStore = store === "" || row.Store === store;
+        // Logic Change: Use .filter to get ALL stores where this code exists
+        currentFoundItems = csvData.filter(row => {
+            const matchesCode = (row.Item_Code == code || row.Item_scan_code == code);
+            const matchesStore = (store === "" || row.Store === store);
             return matchesCode && matchesStore;
         });
 
-        if (found) {
-            currentItem = found;
-            let h = '<div class="item-card">';
-            for (let [k, v] of Object.entries(found)) {
-                h += `<div class="result-row"><div class="label">${k}</div><div class="value">${v || '-'}</div></div>`;
-            }
-            res.innerHTML = h + '</div>';
+        if (currentFoundItems.length > 0) {
+            let html = "";
+            currentFoundItems.forEach(item => {
+                html += '<div class="item-card">';
+                for (let [k, v] of Object.entries(item)) {
+                    html += `<div class="result-row"><div class="label">${k}</div><div class="value">${v || '-'}</div></div>`;
+                }
+                html += '</div>';
+            });
+            res.innerHTML = html;
 
-            // AGGRESSIVE RANGE CHECK
-            // Looks for any column that has "range" in the title
-            const rangeCol = Object.keys(found).find(k => k.toLowerCase().includes('range'));
-            if (rangeCol && found[rangeCol]) {
-                console.log("Range match found in column:", rangeCol);
-                btn.style.display = "block"; // SHOW BUTTON
+            // Range Button Check (uses first match as reference)
+            const rangeCol = Object.keys(currentFoundItems[0]).find(k => k.toLowerCase().includes('range'));
+            if (rangeCol && currentFoundItems[0][rangeCol]) {
+                btn.style.display = "block";
             }
         } else {
-            res.innerHTML = "<p style='color:red; text-align:center;'>Not found</p>";
+            res.innerHTML = "<p style='color:red; text-align:center; font-weight:bold;'>No records found for this code.</p>";
         }
     }
 
     function showRangeDetails() {
-        const rangeCol = Object.keys(currentItem).find(k => k.toLowerCase().includes('range'));
-        const rangeVal = currentItem[rangeCol];
-        const storeVal = currentItem.Store;
+        if (currentFoundItems.length === 0) return;
+        
+        const referenceItem = currentFoundItems[0];
+        const rangeCol = Object.keys(referenceItem).find(k => k.toLowerCase().includes('range'));
+        const rangeVal = referenceItem[rangeCol];
+        const selectedStore = document.getElementById('storeFilter').value;
 
-        const items = csvData.filter(row => row[rangeCol] === rangeVal && row.Store === storeVal);
+        // Filter: Show range items. 
+        // If "All Stores" is picked, it shows the range for the whole company.
+        const items = csvData.filter(row => {
+            const matchesRange = row[rangeCol] === rangeVal;
+            const matchesStore = (selectedStore === "" || row.Store === selectedStore);
+            return matchesRange && matchesStore;
+        });
 
         if (items.length > 0) {
             const keys = Object.keys(items[0]);
-            let h = `<h3>Range: ${rangeVal}</h3><div class="range-container"><table class="range-table"><thead><tr>`;
+            let h = `<h3>Range: ${rangeVal} ${selectedStore ? '('+selectedStore+')' : '(Company Wide)'}</h3>`;
+            h += `<div class="range-container"><table class="range-table"><thead><tr>`;
             keys.forEach(k => h += `<th>${k}</th>`);
             h += `</tr></thead><tbody>`;
             
+            const currentSearchCode = document.getElementById('itemCodeInput').value.trim();
+
             items.forEach(row => {
-                const isMatch = row.Item_Code == currentItem.Item_Code;
+                // Highlight the specific item being searched
+                const isMatch = (row.Item_Code == currentSearchCode || row.Item_scan_code == currentSearchCode);
                 h += `<tr class="${isMatch ? 'highlight' : ''}">`;
                 keys.forEach(k => h += `<td>${row[k] || '-'}</td>`);
                 h += `</tr>`;
             });
             
             h += `</tbody></table></div>`;
-            document.getElementById('rangeResult').innerHTML = h;
+            const rangeResDiv = document.getElementById('rangeResult');
+            rangeResDiv.innerHTML = h;
+            rangeResDiv.scrollIntoView({ behavior: 'smooth' });
         }
     }
 </script>
