@@ -23,13 +23,17 @@
         #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; cursor: pointer; }
 
         .summary-section { margin: 15px 0; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; background: #fff; }
-        .summary-title { background: #6c757d; color: white; padding: 5px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .summary-title { background: #6c757d; color: white; padding: 5px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; }
         .summary-box { display: flex; gap: 0; background: #f8f9fa; padding: 10px; }
         .summary-item { flex: 1; text-align: center; border-right: 1px solid #dee2e6; }
         .summary-item:last-child { border-right: none; }
         .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 2px; }
-        .summary-value { font-size: 18px; font-weight: bold; color: #117a8b; }
-        .pct-label { font-size: 12px; color: #666; font-weight: normal; margin-left: 4px; }
+        .summary-value { font-size: 16px; font-weight: bold; color: #117a8b; }
+        .pct-label { font-size: 11px; color: #666; font-weight: normal; }
+
+        .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; text-transform: uppercase; font-weight: bold; margin-left: 5px; }
+        .badge-top { background: #d4edda; color: #155724; }
+        .badge-low { background: #f8d7da; color: #721c24; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -184,15 +188,19 @@
         const rangeValue = firstMatch[rangeColName];
         const selectedStore = document.getElementById('storeFilter').value;
 
-        // 1. GLOBAL RANGE SUM (Every store in CSV)
+        // 1. GLOBAL CALCULATIONS
         const globalRangeRows = csvData.filter(row => row[rangeColName] === rangeValue);
+        const distinctStores = [...new Set(globalRangeRows.map(r => r.Store))].length || 1;
+        
         let globalMTD = 0; let globalYTD = 0;
         globalRangeRows.forEach(row => {
             globalMTD += cleanNum(row.TY_MTD_Sale_Value);
             globalYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
-        // 2. LOCAL RANGE SUM (Filtered based on dropdown)
+        const globalAvgPerStore = globalYTD / distinctStores;
+
+        // 2. LOCAL CALCULATIONS
         const localRangeRows = globalRangeRows.filter(row => 
             selectedStore === "" || row.Store === selectedStore
         );
@@ -202,31 +210,34 @@
             localYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
-        // 3. CALCULATE PERCENTAGES
+        // Insights Logic
+        const avgPerItem = localRangeRows.length > 0 ? (localYTD / localRangeRows.length) : 0;
         const mtdPct = globalMTD > 0 ? ((localMTD / globalMTD) * 100).toFixed(1) : 0;
-        const ytdPct = globalYTD > 0 ? ((localYTD / globalYTD) * 100).toFixed(1) : 0;
+        const benchmark = globalAvgPerStore > 0 ? (localYTD / globalAvgPerStore).toFixed(2) : 0;
+
+        // Find Top/Bottom items in current view
+        let sorted = [...localRangeRows].sort((a, b) => cleanNum(b.TY_YTD_Sale_Value) - cleanNum(a.TY_YTD_Sale_Value));
+        const topItemCode = sorted.length > 0 ? sorted[0].Item_Code : null;
+        const lowItemCode = sorted.length > 1 ? sorted[sorted.length-1].Item_Code : null;
 
         const allHeaders = Object.keys(globalRangeRows[0]);
         let output = `<h3>Performance: ${rangeValue}</h3>`;
         
-        // Dashboard - Global Row
-        output += `<div class="summary-section"><div class="summary-title">Global Range Totals (All Stores)</div><div class="summary-box">
-            <div class="summary-item"><div class="summary-label">Global MTD</div><div class="summary-value">${globalMTD.toLocaleString()}</div></div>
+        // Insight 1: Company Overview
+        output += `<div class="summary-section"><div class="summary-title">Global Perspective</div><div class="summary-box">
+            <div class="summary-item"><div class="summary-label">Total Stores</div><div class="summary-value">${distinctStores}</div></div>
             <div class="summary-item"><div class="summary-label">Global YTD</div><div class="summary-value">${globalYTD.toLocaleString()}</div></div>
         </div></div>`;
 
-        // Dashboard - Local Row (With Percentage)
+        // Insight 2: Local Efficiency & Benchmarking
         if (selectedStore !== "") {
-            output += `<div class="summary-section"><div class="summary-title">Local Range Totals (${selectedStore})</div><div class="summary-box">
-                <div class="summary-item">
-                    <div class="summary-label">Store MTD</div>
-                    <div class="summary-value">${localMTD.toLocaleString()} <span class="pct-label">(${mtdPct}%)</span></div>
+            output += `<div class="summary-section">
+                <div class="summary-title">Efficiency & Benchmarks <span>vs. Avg Store: ${benchmark}x</span></div>
+                <div class="summary-box">
+                    <div class="summary-item"><div class="summary-label">Contrib %</div><div class="summary-value">${mtdPct}%</div></div>
+                    <div class="summary-item"><div class="summary-label">Avg Item Sale</div><div class="summary-value">${avgPerItem.toLocaleString(undefined, {maximumFractionDigits:0})}</div></div>
                 </div>
-                <div class="summary-item">
-                    <div class="summary-label">Store YTD</div>
-                    <div class="summary-value">${localYTD.toLocaleString()} <span class="pct-label">(${ytdPct}%)</span></div>
-                </div>
-            </div></div>`;
+            </div>`;
         }
 
         output += `<div class="range-container"><table class="range-table"><thead><tr>`;
@@ -236,15 +247,24 @@
         const searchInputCode = document.getElementById('itemCodeInput').value.trim();
         localRangeRows.forEach(row => {
             const isSearched = (row.Item_Code == searchInputCode || row.Item_scan_code == searchInputCode);
+            const isTop = row.Item_Code === topItemCode;
+            const isLow = row.Item_Code === lowItemCode && sorted.length > 5; // Only tag low if range is large
+
             output += `<tr class="${isSearched ? 'highlight' : ''}">`;
-            allHeaders.forEach(h => output += `<td>${row[h] || '-'}</td>`);
+            allHeaders.forEach(h => {
+                let cellVal = row[h] || '-';
+                if (h === 'Item_Code') {
+                    if (isTop) cellVal += `<span class="badge badge-top">Top</span>`;
+                    if (isLow) cellVal += `<span class="badge badge-low">Low</span>`;
+                }
+                output += `<td>${cellVal}</td>`;
+            });
             output += `</tr>`;
         });
         output += `</tbody></table></div>`;
         
-        const targetDiv = document.getElementById('rangeResult');
-        targetDiv.innerHTML = output;
-        targetDiv.scrollIntoView({ behavior: 'smooth' });
+        document.getElementById('rangeResult').innerHTML = output;
+        document.getElementById('rangeResult').scrollIntoView({ behavior: 'smooth' });
     }
 </script>
 </body>
