@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Sales Analytics</title>
+    <title>Inventory Analytics Pro</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
-        .container { max-width: 650px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
@@ -18,7 +18,8 @@
         #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; background: #000; min-height: 250px; border: 2px solid #eee; }
 
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
+        button:active { opacity: 0.8; }
         
         #rangeBtn { 
             display: none; 
@@ -44,8 +45,8 @@
             border: 1px solid #e9ecef;
         }
         .summary-item { flex: 1; text-align: center; }
-        .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 4px; }
-        .summary-value { font-size: 18px; font-weight: bold; color: #117a8b; }
+        .summary-label { font-size: 10px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 4px; }
+        .summary-value { font-size: 20px; font-weight: bold; color: #117a8b; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -66,14 +67,16 @@
 <body>
 
 <div class="container">
+    <!-- PIN LOGIN SCREEN -->
     <div id="loginScreen">
         <h2>Inventory Pro</h2>
         <input type="password" id="passInput" class="login-input" placeholder="Enter PIN" inputmode="numeric">
         <button onclick="checkPassword()">Login</button>
     </div>
 
+    <!-- MAIN INTERFACE -->
     <div id="mainTool">
-        <div id="fileStatus" style="text-align:center; font-size:11px; color:gray; margin-bottom: 10px;">Checking Database...</div>
+        <div id="fileStatus" style="text-align:center; font-size:11px; color:gray; margin-bottom: 10px;">Connecting...</div>
         <div id="reader"></div>
         
         <div class="btn-group">
@@ -81,13 +84,13 @@
             <button style="background:#6c757d" onclick="fullReset()">Reset</button>
         </div>
 
-        <label>Store Filter</label>
+        <label>Select Store</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Item Code</label>
+        <label>Manual Entry (Item or Scan Code)</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()" inputmode="numeric">
         
-        <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE DETAILS</button>
+        <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE PERFORMANCE</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -95,47 +98,62 @@
 </div>
 
 <script>
-    const PIN = "1234";
+    const PIN = "1234"; // Your access PIN
     let csvData = [];
     let html5QrCode;
     let currentFoundItems = [];
 
+    // 1. LOGIN LOGIC
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainTool').style.display = 'block';
             loadCSV();
+        } else {
+            alert("Incorrect PIN");
         }
     }
 
+    // 2. CSV DATA LOADING
     function loadCSV() {
         Papa.parse('data.csv', {
-            download: true, header: true, skipEmptyLines: true,
-            complete: function(r) {
-                csvData = r.data;
-                document.getElementById('fileStatus').innerText = "✅ Database Connected";
+            download: true, 
+            header: true, 
+            skipEmptyLines: true,
+            complete: function(results) {
+                csvData = results.data;
+                document.getElementById('fileStatus').innerText = "✅ Database Active";
                 populateStores();
+            },
+            error: function() {
+                document.getElementById('fileStatus').innerText = "❌ Error loading data.csv";
             }
         });
     }
 
+    // 3. STORE FILTER POPULATION
     function populateStores() {
         const stores = [...new Set(csvData.map(i => i.Store).filter(Boolean))].sort();
-        let opt = '<option value="">All Stores</option>';
-        stores.forEach(s => opt += `<option value="${s}">${s}</option>`);
-        document.getElementById('storeFilter').innerHTML = opt;
+        let options = '<option value="">All Stores (Company Wide)</option>';
+        stores.forEach(s => options += `<option value="${s}">${s}</option>`);
+        document.getElementById('storeFilter').innerHTML = options;
     }
 
+    // 4. CAMERA SCANNER
     async function startScanner() {
         if (html5QrCode) { await html5QrCode.clear(); }
         html5QrCode = new Html5Qrcode("reader");
-        await html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, (txt) => {
-            document.getElementById('itemCodeInput').value = txt;
-            html5QrCode.stop().then(() => {
-                document.getElementById('reader').innerHTML = "";
-                searchCSV();
-            });
-        }).catch(err => alert("Camera error"));
+        await html5QrCode.start(
+            { facingMode: "environment" }, 
+            { fps: 15, qrbox: 250 }, 
+            (decodedText) => {
+                document.getElementById('itemCodeInput').value = decodedText;
+                html5QrCode.stop().then(() => {
+                    document.getElementById('reader').innerHTML = "";
+                    searchCSV();
+                });
+            }
+        ).catch(err => console.error(err));
     }
 
     function fullReset() {
@@ -148,6 +166,7 @@
         document.getElementById('reader').innerHTML = "";
     }
 
+    // 5. SEARCH LOGIC
     function searchCSV() {
         const code = document.getElementById('itemCodeInput').value.trim();
         const store = document.getElementById('storeFilter').value;
@@ -159,86 +178,103 @@
 
         if (!code) { res.innerHTML = ""; return; }
 
+        // Find all occurrences (one per store)
         currentFoundItems = csvData.filter(row => {
-            const matchesCode = (row.Item_Code == code || row.Item_scan_code == code);
-            const matchesStore = (store === "" || row.Store === store);
-            return matchesCode && matchesStore;
+            const isTargetItem = (row.Item_Code == code || row.Item_scan_code == code);
+            const isTargetStore = (store === "" || row.Store === store);
+            return isTargetItem && isTargetStore;
         });
 
         if (currentFoundItems.length > 0) {
             let html = "";
             currentFoundItems.forEach(item => {
                 html += '<div class="item-card">';
-                for (let [k, v] of Object.entries(item)) {
-                    html += `<div class="result-row"><div class="label">${k}</div><div class="value">${v || '-'}</div></div>`;
+                for (let [key, val] of Object.entries(item)) {
+                    html += `<div class="result-row"><div class="label">${key}</div><div class="value">${val || '-'}</div></div>`;
                 }
                 html += '</div>';
             });
             res.innerHTML = html;
 
+            // Check if "Range" exists to show the button
             const rangeCol = Object.keys(currentFoundItems[0]).find(k => k.toLowerCase().includes('range'));
             if (rangeCol && currentFoundItems[0][rangeCol]) {
                 btn.style.display = "block";
             }
         } else {
-            res.innerHTML = "<p style='color:red; text-align:center;'>Not found.</p>";
+            res.innerHTML = "<p style='color:red; text-align:center; font-weight:bold;'>Product Not Found</p>";
         }
     }
 
+    // 6. HELPER: CLEAN NUMBERS FOR MATH
+    function cleanNum(val) {
+        if (!val) return 0;
+        // Remove commas, symbols, and spaces. Keep digits and decimals.
+        let sanitized = val.toString().replace(/,/g, '').replace(/[^\d.-]/g, '');
+        let n = parseFloat(sanitized);
+        return isNaN(n) ? 0 : n;
+    }
+
+    // 7. RANGE ANALYTICS LOGIC
     function showRangeDetails() {
         if (currentFoundItems.length === 0) return;
         
-        const referenceItem = currentFoundItems[0];
-        const rangeCol = Object.keys(referenceItem).find(k => k.toLowerCase().includes('range'));
-        const rangeVal = referenceItem[rangeCol];
+        const firstMatch = currentFoundItems[0];
+        const rangeColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
+        const rangeValue = firstMatch[rangeColName];
         const selectedStore = document.getElementById('storeFilter').value;
 
-        const items = csvData.filter(row => {
-            const matchesRange = row[rangeCol] === rangeVal;
+        // Filter all items belonging to this range
+        const rangeRows = csvData.filter(row => {
+            const matchesRange = row[rangeColName] === rangeValue;
             const matchesStore = (selectedStore === "" || row.Store === selectedStore);
             return matchesRange && matchesStore;
         });
 
-        if (items.length > 0) {
-            // Calculation logic
-            let totalMTD = 0;
-            let totalYTD = 0;
-            items.forEach(row => {
-                totalMTD += parseFloat(row.TY_MTD_Sale_Value || 0);
-                totalYTD += parseFloat(row.TY_YTD_Sale_Value || 0);
+        if (rangeRows.length > 0) {
+            let sumMTD = 0;
+            let sumYTD = 0;
+
+            // Strictly sum the requested columns
+            rangeRows.forEach(row => {
+                sumMTD += cleanNum(row.TY_MTD_Sale_Value);
+                sumYTD += cleanNum(row.TY_YTD_Sale_Value);
             });
 
-            const keys = Object.keys(items[0]);
-            let h = `<h3>Range: ${rangeVal} ${selectedStore ? '('+selectedStore+')' : '(Company Wide)'}</h3>`;
+            const allHeaders = Object.keys(rangeRows[0]);
+            let output = `<h3>Range: ${rangeValue} ${selectedStore ? '('+selectedStore+')' : '(Company Total)'}</h3>`;
             
-            // Dashboard UI
-            h += `
+            // Dashboard Display
+            output += `
             <div class="summary-box">
                 <div class="summary-item">
-                    <div class="summary-label">Range MTD Sales</div>
-                    <div class="summary-value">${totalMTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    <div class="summary-label">Sum of TY MTD Sales</div>
+                    <div class="summary-value">${sumMTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                 </div>
                 <div class="summary-item" style="border-left: 1px solid #dee2e6;">
-                    <div class="summary-label">Range YTD Sales</div>
-                    <div class="summary-value">${totalYTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                    <div class="summary-label">Sum of TY YTD Sales</div>
+                    <div class="summary-value">${sumYTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                 </div>
             </div>`;
 
-            h += `<div class="range-container"><table class="range-table"><thead><tr>`;
-            keys.forEach(k => h += `<th>${k.replace(/_/g, ' ')}</th>`);
-            h += `</tr></thead><tbody>`;
+            // Data Table Display
+            output += `<div class="range-container"><table class="range-table"><thead><tr>`;
+            allHeaders.forEach(h => output += `<th>${h.replace(/_/g, ' ')}</th>`);
+            output += `</tr></thead><tbody>`;
             
-            const currentSearchCode = document.getElementById('itemCodeInput').value.trim();
-            items.forEach(row => {
-                const isMatch = (row.Item_Code == currentSearchCode || row.Item_scan_code == currentSearchCode);
-                h += `<tr class="${isMatch ? 'highlight' : ''}">`;
-                keys.forEach(k => h += `<td>${row[k] || '-'}</td>`);
-                h += `</tr>`;
+            const searchInputCode = document.getElementById('itemCodeInput').value.trim();
+            rangeRows.forEach(row => {
+                const isSearched = (row.Item_Code == searchInputCode || row.Item_scan_code == searchInputCode);
+                output += `<tr class="${isSearched ? 'highlight' : ''}">`;
+                allHeaders.forEach(h => output += `<td>${row[h] || '-'}</td>`);
+                output += `</tr>`;
             });
             
-            h += `</tbody></table></div>`;
-            document.getElementById('rangeResult').innerHTML = h;
-            document.getElementById('rangeResult').scrollIntoView({ behavior: 'smooth' });
+            output += `</tbody></table></div>`;
+            
+            const targetDiv = document.getElementById('rangeResult');
+            targetDiv.innerHTML = output;
+            targetDiv.scrollIntoView({ behavior: 'smooth' });
         }
     }
 </script>
