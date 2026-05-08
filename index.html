@@ -20,16 +20,15 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
         
-        #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; }
+        #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; cursor: pointer; }
 
-        /* Multi-Row Summary Dashboard */
         .summary-section { margin: 15px 0; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; background: #fff; }
         .summary-title { background: #6c757d; color: white; padding: 5px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .summary-box { display: flex; gap: 0; background: #f8f9fa; padding: 10px; }
         .summary-item { flex: 1; text-align: center; border-right: 1px solid #dee2e6; }
         .summary-item:last-child { border-right: none; }
         .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 2px; }
-        .summary-value { font-size: 16px; font-weight: bold; color: #117a8b; }
+        .summary-value { font-size: 18px; font-weight: bold; color: #117a8b; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -43,7 +42,7 @@
         .highlight { background: #fff3cd !important; font-weight: bold; }
 
         input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; margin-left: 5px; }
+        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
         h3 { color: #17a2b8; margin: 20px 0 5px 0; font-size: 1.1rem; }
     </style>
 </head>
@@ -65,10 +64,10 @@
             <button style="background:#6c757d" onclick="fullReset()">Reset</button>
         </div>
 
-        <label>Select Store</label>
+        <label>Select Store Filter</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Manual Entry (Item or Scan Code)</label>
+        <label>Enter Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()" inputmode="numeric">
         
         <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE PERFORMANCE</button>
@@ -105,7 +104,7 @@
 
     function populateStores() {
         const stores = [...new Set(csvData.map(i => i.Store).filter(Boolean))].sort();
-        let opt = '<option value="">All Stores</option>';
+        let opt = '<option value="">All Stores (Company)</option>';
         stores.forEach(s => opt += `<option value="${s}">${s}</option>`);
         document.getElementById('storeFilter').innerHTML = opt;
     }
@@ -184,55 +183,37 @@
         const rangeValue = firstMatch[rangeColName];
         const selectedStore = document.getElementById('storeFilter').value;
 
-        // 1. SUM FOR SELECTED ITEM(S)
-        let itemMTD = 0; let itemYTD = 0;
-        currentFoundItems.forEach(row => {
-            itemMTD += cleanNum(row.TY_MTD_Sale_Value);
-            itemYTD += cleanNum(row.TY_YTD_Sale_Value);
+        // 1. GLOBAL RANGE SUM (Every store in CSV)
+        const globalRangeRows = csvData.filter(row => row[rangeColName] === rangeValue);
+        let globalMTD = 0; let globalYTD = 0;
+        globalRangeRows.forEach(row => {
+            globalMTD += cleanNum(row.TY_MTD_Sale_Value);
+            globalYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
-        // 2. SUM FOR ENTIRE RANGE (Selected Store or All)
-        const rangeRows = csvData.filter(row => {
-            const matchesRange = row[rangeColName] === rangeValue;
-            const matchesStore = (selectedStore === "" || row.Store === selectedStore);
-            return matchesRange && matchesStore;
-        });
-        let rangeMTD = 0; let rangeYTD = 0;
-        rangeRows.forEach(row => {
-            rangeMTD += cleanNum(row.TY_MTD_Sale_Value);
-            rangeYTD += cleanNum(row.TY_YTD_Sale_Value);
+        // 2. LOCAL RANGE SUM (Filtered list based on your UI dropdown)
+        const localRangeRows = globalRangeRows.filter(row => 
+            selectedStore === "" || row.Store === selectedStore
+        );
+        let localMTD = 0; let localYTD = 0;
+        localRangeRows.forEach(row => {
+            localMTD += cleanNum(row.TY_MTD_Sale_Value);
+            localYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
-        // 3. SUM FOR THE SELECTED STORE (Total database sum for that store)
-        let storeMTD = 0; let storeYTD = 0;
-        if (selectedStore !== "") {
-            const storeRows = csvData.filter(row => row.Store === selectedStore);
-            storeRows.forEach(row => {
-                storeMTD += cleanNum(row.TY_MTD_Sale_Value);
-                storeYTD += cleanNum(row.TY_YTD_Sale_Value);
-            });
-        }
-
-        const allHeaders = Object.keys(rangeRows[0]);
+        const allHeaders = Object.keys(globalRangeRows[0]);
         let output = `<h3>Performance: ${rangeValue}</h3>`;
         
-        // DASHBOARD Row 1: Searched Item
-        output += `<div class="summary-section"><div class="summary-title">This Item Totals</div><div class="summary-box">
-            <div class="summary-item"><div class="summary-label">MTD</div><div class="summary-value">${itemMTD.toLocaleString()}</div></div>
-            <div class="summary-item"><div class="summary-label">YTD</div><div class="summary-value">${itemYTD.toLocaleString()}</div></div>
+        // Dashboard
+        output += `<div class="summary-section"><div class="summary-title">Global Range Totals (All Stores)</div><div class="summary-box">
+            <div class="summary-item"><div class="summary-label">Global MTD</div><div class="summary-value">${globalMTD.toLocaleString()}</div></div>
+            <div class="summary-item"><div class="summary-label">Global YTD</div><div class="summary-value">${globalYTD.toLocaleString()}</div></div>
         </div></div>`;
 
-        // DASHBOARD Row 2: Range Totals
-        output += `<div class="summary-section"><div class="summary-title">Full Range Totals (${selectedStore || 'Company'})</div><div class="summary-box">
-            <div class="summary-item"><div class="summary-label">Range MTD</div><div class="summary-value">${rangeMTD.toLocaleString()}</div></div>
-            <div class="summary-item"><div class="summary-label">Range YTD</div><div class="summary-value">${rangeYTD.toLocaleString()}</div></div>
-        </div></div>`;
-
-        // DASHBOARD Row 3: Store Totals (Only if a store is selected)
         if (selectedStore !== "") {
-            output += `<div class="summary-section"><div class="summary-title">Full Store Totals (${selectedStore})</div><div class="summary-box">
-                <div class="summary-item"><div class="summary-label">Store MTD</div><div class="summary-value">${storeMTD.toLocaleString()}</div></div>
-                <div class="summary-item"><div class="summary-label">Store YTD</div><div class="summary-value">${storeYTD.toLocaleString()}</div></div>
+            output += `<div class="summary-section"><div class="summary-title">Local Range Totals (${selectedStore})</div><div class="summary-box">
+                <div class="summary-item"><div class="summary-label">Store MTD</div><div class="summary-value">${localMTD.toLocaleString()}</div></div>
+                <div class="summary-item"><div class="summary-label">Store YTD</div><div class="summary-value">${localYTD.toLocaleString()}</div></div>
             </div></div>`;
         }
 
@@ -241,7 +222,7 @@
         output += `</tr></thead><tbody>`;
         
         const searchInputCode = document.getElementById('itemCodeInput').value.trim();
-        rangeRows.forEach(row => {
+        localRangeRows.forEach(row => {
             const isSearched = (row.Item_Code == searchInputCode || row.Item_scan_code == searchInputCode);
             output += `<tr class="${isSearched ? 'highlight' : ''}">`;
             allHeaders.forEach(h => output += `<td>${row[h] || '-'}</td>`);
