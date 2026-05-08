@@ -3,125 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Range Edition</title>
+    <title>Inventory Pro - Range Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
+        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
-        /* Login Styles */
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
         
         #mainTool { display: none; }
-        
-        /* Scanner Styles */
-        #reader { 
-            width: 100%; 
-            border-radius: 8px; 
-            overflow: hidden; 
-            margin-bottom: 15px; 
-            background: #000; 
-            min-height: 250px;
-            border: 2px solid #eee;
-        }
-
-        .scan-success { animation: success-glow 0.4s ease-out; }
-        @keyframes success-glow {
-            0% { box-shadow: inset 0 0 60px #28a745; border: 4px solid #28a745; }
-            100% { box-shadow: inset 0 0 0px transparent; border: 2px solid #eee; }
-        }
-        
-        /* UI Components */
-        select, input[type="number"] { 
-            width: 100%; 
-            padding: 15px; 
-            margin: 5px 0 15px 0; 
-            border: 1px solid #ddd; 
-            border-radius: 8px; 
-            box-sizing: border-box; 
-            font-size: 16px;
-            background-color: #fff;
-        }
+        #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; background: #000; min-height: 250px; border: 2px solid #eee; }
 
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
-        button:active { opacity: 0.8; }
+        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
         
-        .btn-scan { background: #28a745; }
-        .btn-stop { background: #dc3545; display: none; }
-        .btn-reset { background: #6c757d; }
-        #torchBtn { background: #ffc107; color: black; display: none; }
-        
-        /* NEW: Range Button Style */
+        /* THE RANGE BUTTON */
         #rangeBtn { 
-            background: #17a2b8; 
-            width: 100%; 
-            margin-top: 10px; 
             display: none; 
-            padding: 18px;
-            font-size: 16px;
-            letter-spacing: 0.5px;
+            width: 100%; 
+            background: #17a2b8; 
+            color: white; 
+            padding: 15px; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            margin: 10px 0; 
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
-        /* Results Display */
-        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
-        .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
-        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-word; }
+        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; }
+        .value { padding: 10px; width: 60%; font-size: 14px; }
         
-        /* Horizontal Range Table */
-        .range-section-title { margin: 25px 0 10px 0; font-size: 18px; color: #17a2b8; border-bottom: 2px solid #17a2b8; display: inline-block; }
-        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: white; margin-bottom: 30px; }
-        .range-table { border-collapse: collapse; min-width: 100%; font-size: 13px; }
-        .range-table th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 10px; padding: 12px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
-        .range-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; white-space: nowrap; }
-        .current-item-row { background-color: #fff3cd !important; font-weight: bold; }
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 15px; }
+        .range-table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+        .range-table th { background: #eee; padding: 10px; border: 1px solid #ddd; white-space: nowrap; }
+        .range-table td { padding: 10px; border: 1px solid #ddd; text-align: center; white-space: nowrap; }
+        .highlight { background: #fff3cd !important; font-weight: bold; }
 
-        .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
-        .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
-        label { font-size: 11px; font-weight: bold; color: #666; margin-left: 5px; text-transform: uppercase; }
+        input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
-<audio id="beepSound" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
-
 <div class="container">
-    <!-- Login Screen -->
     <div id="loginScreen">
-        <h2>Secure Access</h2>
-        <input type="password" id="passInput" class="login-input" placeholder="Enter PIN" inputmode="numeric">
-        <button id="loginBtn" onclick="checkPassword()">Login</button>
-        <p id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect Password</p>
+        <h2>Inventory Login</h2>
+        <input type="password" id="passInput" class="login-input" placeholder="PIN" inputmode="numeric">
+        <button onclick="checkPassword()">Login</button>
     </div>
 
-    <!-- Main App -->
     <div id="mainTool">
-        <h2 style="text-align:center; margin-top: 0;">Inventory Pro</h2>
-        <div id="fileStatus" class="status">Initializing...</div>
-        
+        <div id="fileStatus" style="text-align:center; font-size:12px; color:gray;">Loading CSV...</div>
         <div id="reader"></div>
         
         <div class="btn-group">
-            <button id="startBtn" class="btn-scan" onclick="startScanner()">Camera Scan</button>
-            <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
-            <button id="resetBtn" class="btn-reset" onclick="fullReset()">🔄 Reset</button>
-            <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
+            <button class="btn-scan" onclick="startScanner()">Camera Scan</button>
+            <button style="background:#6c757d" onclick="fullReset()">Reset</button>
         </div>
 
-        <label for="storeFilter">Current Store</label>
-        <select id="storeFilter" onchange="searchCSV()">
-            <option value="">All Stores</option>
-        </select>
+        <label>Store</label>
+        <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label for="itemCodeInput">Search Item Code</label>
-        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Scan or type code..." oninput="searchCSV()">
+        <label>Item Code</label>
+        <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()">
         
-        <!-- Range Details Trigger -->
-        <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE DETAILS</button>
+        <!-- BUTTON STARTS HERE -->
+        <button id="rangeBtn" onclick="showRangeDetails()">📊 RANGE DETAILS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -129,214 +82,110 @@
 </div>
 
 <script>
-    const MY_PASSWORD = "1234"; 
+    const PIN = "1234";
     let csvData = [];
     let html5QrCode;
-    let isTorchOn = false;
-    let currentFoundItem = null;
+    let currentItem = null;
 
     function checkPassword() {
-        if (document.getElementById('passInput').value === MY_PASSWORD) {
+        if (document.getElementById('passInput').value === PIN) {
             document.getElementById('loginScreen').style.display = 'none';
             document.getElementById('mainTool').style.display = 'block';
-            loadInventory();
-        } else {
-            document.getElementById('loginError').style.display = 'block';
+            loadCSV();
         }
     }
 
-    function loadInventory() {
+    function loadCSV() {
         Papa.parse('data.csv', {
-            download: true, 
-            header: true, 
-            skipEmptyLines: true,
-            complete: function(results) {
-                csvData = results.data;
-                document.getElementById('fileStatus').innerText = "✅ Database Ready";
-                populateStoreFilter();
-            },
-            error: function() { 
-                document.getElementById('fileStatus').innerText = "❌ Error: data.csv not found"; 
+            download: true, header: true, skipEmptyLines: true,
+            complete: function(r) {
+                csvData = r.data;
+                document.getElementById('fileStatus').innerText = "✅ CSV Loaded";
+                const stores = [...new Set(csvData.map(i => i.Store).filter(Boolean))];
+                let opt = '<option value="">All Stores</option>';
+                stores.forEach(s => opt += `<option value="${s}">${s}</option>`);
+                document.getElementById('storeFilter').innerHTML = opt;
+                console.log("Headers found in CSV:", Object.keys(csvData[0]));
             }
         });
     }
 
-    function populateStoreFilter() {
-        const storeFilter = document.getElementById('storeFilter');
-        const stores = [...new Set(csvData.map(item => item.Store).filter(Boolean))];
-        storeFilter.innerHTML = '<option value="">All Stores</option>';
-        stores.sort().forEach(store => {
-            const opt = document.createElement('option');
-            opt.value = store;
-            opt.textContent = store;
-            storeFilter.appendChild(opt);
-        });
-    }
-
-    // --- Scanner Logic ---
     async function startScanner() {
-        const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
-        
-        if (startBtn.disabled) return;
-        clearResults();
-        startBtn.innerText = "Connecting...";
-        startBtn.disabled = true;
-
-        try {
-            if (html5QrCode) { await html5QrCode.clear(); }
-            html5QrCode = new Html5Qrcode("reader");
-            
-            const config = { fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-
-            await html5QrCode.start(
-                { facingMode: "environment" }, config, 
-                (decodedText) => {
-                    triggerFeedback();
-                    document.getElementById('itemCodeInput').value = decodedText;
-                    stopScanner();
-                    searchCSV();
-                }
-            );
-
-            startBtn.style.display = 'none';
-            stopBtn.style.display = 'block';
-            setTimeout(() => checkTorchSupport(), 1000);
-
-        } catch (err) {
-            alert("Camera Access Denied or Error: " + err);
-            resetUI();
-        } finally {
-            startBtn.innerText = "Camera Scan";
-            startBtn.disabled = false;
-        }
-    }
-
-    function stopScanner() {
-        if (html5QrCode && html5QrCode.isScanning) {
-            html5QrCode.stop().then(() => resetUI()).catch(() => resetUI());
-        } else {
-            resetUI();
-        }
-    }
-
-    function resetUI() {
-        document.getElementById('startBtn').style.display = 'block';
-        document.getElementById('stopBtn').style.display = 'none';
-        document.getElementById('torchBtn').style.display = 'none';
-        document.getElementById('reader').innerHTML = "";
-        isTorchOn = false;
-    }
-
-    function triggerFeedback() {
-        if (navigator.vibrate) navigator.vibrate(100);
-        document.getElementById('beepSound').play().catch(() => {});
-        const reader = document.getElementById('reader');
-        reader.classList.add('scan-success');
-        setTimeout(() => reader.classList.remove('scan-success'), 400);
-    }
-
-    function checkTorchSupport() {
-        try {
-            const track = html5QrCode.getRunningTrack();
-            if (track && track.getCapabilities && track.getCapabilities().torch) {
-                document.getElementById('torchBtn').style.display = 'block';
-            }
-        } catch (e) { console.log("Torch check failed"); }
-    }
-
-    function toggleTorch() {
-        isTorchOn = !isTorchOn;
-        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] })
-            .catch(() => isTorchOn = false);
-    }
-
-    // --- Search & Range Logic ---
-    function clearResults() {
-        document.getElementById('result').innerHTML = "";
-        document.getElementById('rangeResult').innerHTML = "";
-        document.getElementById('rangeBtn').style.display = 'none';
-        currentFoundItem = null;
+        html5QrCode = new Html5Qrcode("reader");
+        await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+            document.getElementById('itemCodeInput').value = txt;
+            html5QrCode.stop();
+            searchCSV();
+        });
     }
 
     function fullReset() {
-        stopScanner();
+        if(html5QrCode) html5QrCode.stop().catch(()=>{});
         document.getElementById('itemCodeInput').value = "";
-        document.getElementById('storeFilter').selectedIndex = 0;
-        clearResults();
-        document.getElementById('itemCodeInput').focus();
+        document.getElementById('result').innerHTML = "";
+        document.getElementById('rangeResult').innerHTML = "";
+        document.getElementById('rangeBtn').style.display = "none";
     }
 
     function searchCSV() {
-        const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
-        const selectedStore = document.getElementById('storeFilter').value;
-        const resultDiv = document.getElementById('result');
-        const rangeBtn = document.getElementById('rangeBtn');
+        const code = document.getElementById('itemCodeInput').value.trim();
+        const store = document.getElementById('storeFilter').value;
+        const btn = document.getElementById('rangeBtn');
+        const res = document.getElementById('result');
         
-        clearResults();
+        document.getElementById('rangeResult').innerHTML = "";
+        btn.style.display = "none";
 
-        if (csvData.length === 0 || input === "") return;
+        if (!code) return;
 
-        const foundItems = csvData.filter(row => {
-            const code1 = (row.Item_Code || "").toString().toLowerCase();
-            const code2 = (row.Item_scan_code || "").toString().toLowerCase();
-            const itemStore = (row.Store || "");
-            
-            const matchesCode = (code1 === input || code2 === input);
-            const matchesStore = selectedStore === "" || itemStore === selectedStore;
+        const found = csvData.find(row => {
+            const matchesCode = row.Item_Code == code || row.Item_scan_code == code;
+            const matchesStore = store === "" || row.Store === store;
             return matchesCode && matchesStore;
         });
 
-        if (foundItems.length > 0) {
-            currentFoundItem = foundItems[0];
-            let html = `<div class="item-card">`;
-            for (const [key, value] of Object.entries(currentFoundItem)) {
-                html += `<div class="result-row"><div class="label">${key.replace(/_/g, ' ')}</div><div class="value">${value || '-'}</div></div>`;
+        if (found) {
+            currentItem = found;
+            let h = '<div class="item-card">';
+            for (let [k, v] of Object.entries(found)) {
+                h += `<div class="result-row"><div class="label">${k}</div><div class="value">${v || '-'}</div></div>`;
             }
-            html += `</div>`;
-            resultDiv.innerHTML = html;
+            res.innerHTML = h + '</div>';
 
-            // Detect Range column (case insensitive)
-            const rangeKey = Object.keys(currentFoundItem).find(k => k.toLowerCase() === 'range');
-            if (rangeKey && currentFoundItem[rangeKey]) {
-                rangeBtn.style.display = 'block';
+            // AGGRESSIVE RANGE CHECK
+            // Looks for any column that has "range" in the title
+            const rangeCol = Object.keys(found).find(k => k.toLowerCase().includes('range'));
+            if (rangeCol && found[rangeCol]) {
+                console.log("Range match found in column:", rangeCol);
+                btn.style.display = "block"; // SHOW BUTTON
             }
         } else {
-            resultDiv.innerHTML = `<p class="error">Item not found.</p>`;
+            res.innerHTML = "<p style='color:red; text-align:center;'>Not found</p>";
         }
     }
 
     function showRangeDetails() {
-        const rangeKey = Object.keys(currentFoundItem).find(k => k.toLowerCase() === 'range');
-        const rangeValue = currentFoundItem[rangeKey];
-        const storeValue = currentFoundItem.Store;
-        const rangeResultDiv = document.getElementById('rangeResult');
+        const rangeCol = Object.keys(currentItem).find(k => k.toLowerCase().includes('range'));
+        const rangeVal = currentItem[rangeCol];
+        const storeVal = currentItem.Store;
 
-        // Filter items with matching range and store
-        const rangeItems = csvData.filter(row => 
-            row[rangeKey] === rangeValue && row.Store === storeValue
-        );
+        const items = csvData.filter(row => row[rangeCol] === rangeVal && row.Store === storeVal);
 
-        if (rangeItems.length > 0) {
-            let headers = Object.keys(rangeItems[0]);
-            let html = `<div class="range-section-title">Range: ${rangeValue}</div>`;
-            html += `<div class="range-container"><table class="range-table"><thead><tr>`;
+        if (items.length > 0) {
+            const keys = Object.keys(items[0]);
+            let h = `<h3>Range: ${rangeVal}</h3><div class="range-container"><table class="range-table"><thead><tr>`;
+            keys.forEach(k => h += `<th>${k}</th>`);
+            h += `</tr></thead><tbody>`;
             
-            headers.forEach(h => html += `<th>${h.replace(/_/g, ' ')}</th>`);
-            html += `</tr></thead><tbody>`;
-
-            rangeItems.forEach(item => {
-                const isCurrent = (item.Item_Code === currentFoundItem.Item_Code);
-                html += `<tr class="${isCurrent ? 'current-item-row' : ''}">`;
-                headers.forEach(h => html += `<td>${item[h] || '-'}</td>`);
-                html += `</tr>`;
+            items.forEach(row => {
+                const isMatch = row.Item_Code == currentItem.Item_Code;
+                h += `<tr class="${isMatch ? 'highlight' : ''}">`;
+                keys.forEach(k => h += `<td>${row[k] || '-'}</td>`);
+                h += `</tr>`;
             });
-
-            html += `</tbody></table></div>`;
-            rangeResultDiv.innerHTML = html;
             
-            // Smooth scroll to table
-            rangeResultDiv.scrollIntoView({ behavior: 'smooth' });
+            h += `</tbody></table></div>`;
+            document.getElementById('rangeResult').innerHTML = h;
         }
     }
 </script>
