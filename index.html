@@ -29,6 +29,7 @@
         .summary-item:last-child { border-right: none; }
         .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 2px; }
         .summary-value { font-size: 18px; font-weight: bold; color: #117a8b; }
+        .pct-label { font-size: 12px; color: #666; font-weight: normal; margin-left: 4px; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -191,7 +192,7 @@
             globalYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
-        // 2. LOCAL RANGE SUM (Filtered list based on your UI dropdown)
+        // 2. LOCAL RANGE SUM (Filtered based on dropdown)
         const localRangeRows = globalRangeRows.filter(row => 
             selectedStore === "" || row.Store === selectedStore
         );
@@ -201,19 +202,30 @@
             localYTD += cleanNum(row.TY_YTD_Sale_Value);
         });
 
+        // 3. CALCULATE PERCENTAGES
+        const mtdPct = globalMTD > 0 ? ((localMTD / globalMTD) * 100).toFixed(1) : 0;
+        const ytdPct = globalYTD > 0 ? ((localYTD / globalYTD) * 100).toFixed(1) : 0;
+
         const allHeaders = Object.keys(globalRangeRows[0]);
         let output = `<h3>Performance: ${rangeValue}</h3>`;
         
-        // Dashboard
+        // Dashboard - Global Row
         output += `<div class="summary-section"><div class="summary-title">Global Range Totals (All Stores)</div><div class="summary-box">
             <div class="summary-item"><div class="summary-label">Global MTD</div><div class="summary-value">${globalMTD.toLocaleString()}</div></div>
             <div class="summary-item"><div class="summary-label">Global YTD</div><div class="summary-value">${globalYTD.toLocaleString()}</div></div>
         </div></div>`;
 
+        // Dashboard - Local Row (With Percentage)
         if (selectedStore !== "") {
             output += `<div class="summary-section"><div class="summary-title">Local Range Totals (${selectedStore})</div><div class="summary-box">
-                <div class="summary-item"><div class="summary-label">Store MTD</div><div class="summary-value">${localMTD.toLocaleString()}</div></div>
-                <div class="summary-item"><div class="summary-label">Store YTD</div><div class="summary-value">${localYTD.toLocaleString()}</div></div>
+                <div class="summary-item">
+                    <div class="summary-label">Store MTD</div>
+                    <div class="summary-value">${localMTD.toLocaleString()} <span class="pct-label">(${mtdPct}%)</span></div>
+                </div>
+                <div class="summary-item">
+                    <div class="summary-label">Store YTD</div>
+                    <div class="summary-value">${localYTD.toLocaleString()} <span class="pct-label">(${ytdPct}%)</span></div>
+                </div>
             </div></div>`;
         }
 
@@ -230,8 +242,9 @@
         });
         output += `</tbody></table></div>`;
         
-        document.getElementById('rangeResult').innerHTML = output;
-        document.getElementById('rangeResult').scrollIntoView({ behavior: 'smooth' });
+        const targetDiv = document.getElementById('rangeResult');
+        targetDiv.innerHTML = output;
+        targetDiv.scrollIntoView({ behavior: 'smooth' });
     }
 </script>
 </body>
