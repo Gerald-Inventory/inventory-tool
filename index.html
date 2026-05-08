@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Pro - Fixed</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script src="[cdnjs.cloudflare.com](https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js)"></script>
+    <script src="[unpkg.com](https://unpkg.com/html5-qrcode)"></script>
     
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
@@ -48,6 +48,7 @@
         .btn-stop { background: #dc3545; display: none; }
         .btn-reset { background: #6c757d; }
         #torchBtn { background: #ffc107; color: black; display: none; }
+        #showRangeBtn { background: #17a2b8; display: none; } /* New button style */
         
         .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -56,11 +57,39 @@
         .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
         .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
         label { font-size: 11px; font-weight: bold; color: #666; margin-left: 5px; text-transform: uppercase; }
+
+        /* New styles for horizontal display */
+        .horizontal-results {
+            margin-top: 20px;
+            overflow-x: auto; /* Allows horizontal scrolling if many items */
+            white-space: nowrap; /* Keeps items on a single line */
+            padding-bottom: 10px; /* Space for scrollbar */
+        }
+        .horizontal-results .item-card {
+            display: inline-block; /* Makes item cards display side-by-side */
+            vertical-align: top; /* Aligns cards at the top */
+            width: 250px; /* Fixed width for horizontal cards */
+            margin-right: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            white-space: normal; /* Allow text inside card to wrap normally */
+        }
+        .horizontal-results .item-card .label,
+        .horizontal-results .item-card .value {
+            font-size: 13px; /* Slightly smaller font for horizontal display */
+            padding: 8px;
+        }
+        .horizontal-results h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            text-align: center;
+            font-size: 1.1em;
+            color: #555;
+        }
     </style>
 </head>
 <body>
 
-<audio id="beepSound" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
+<audio id="beepSound" src="[assets.mixkit.co](https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3)" preload="auto"></audio>
 
 <div class="container">
     <div id="loginScreen">
@@ -81,6 +110,7 @@
             <button id="stopBtn" class="btn-stop" onclick="stopScanner()">Cancel Scan</button>
             <button id="resetBtn" class="btn-reset" onclick="fullReset()">🔄 Reset</button>
             <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
+            <button id="showRangeBtn" onclick="showRangeDetails()" disabled>🌐 Show Range Details</button> <!-- New button -->
         </div>
 
         <label for="storeFilter">Filter by Store</label>
@@ -92,6 +122,7 @@
         <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Scan or Type" oninput="searchCSV()">
         
         <div id="result"></div>
+        <div id="rangeResult" class="horizontal-results"></div> <!-- New div for horizontal results -->
     </div>
 </div>
 
@@ -100,6 +131,7 @@
     let csvData = [];
     let html5QrCode;
     let isTorchOn = false;
+    let lastFoundRange = null; // To store the range of the last found item
 
     function checkPassword() {
         if (document.getElementById('passInput').value === MY_PASSWORD) {
@@ -141,9 +173,14 @@
     async function startScanner() {
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        const showRangeBtn = document.getElementById('showRangeBtn');
         
         if (startBtn.disabled) return;
         document.getElementById('result').innerHTML = "";
+        document.getElementById('rangeResult').innerHTML = ""; // Clear range results
+        showRangeBtn.style.display = 'none'; // Hide range button
+        lastFoundRange = null; // Reset last found range
+
         startBtn.innerText = "Connecting...";
         startBtn.disabled = true;
 
@@ -197,7 +234,7 @@
         isTorchOn = false;
     }
 
-    // NEW: Full Reset Functionality
+    // Full Reset Functionality
     function fullReset() {
         // Stop camera if running
         stopScanner();
@@ -208,7 +245,12 @@
         
         // Clear results
         document.getElementById('result').innerHTML = "";
+        document.getElementById('rangeResult').innerHTML = ""; // Clear range results
         
+        document.getElementById('showRangeBtn').style.display = 'none'; // Hide range button
+        document.getElementById('showRangeBtn').disabled = true; // Disable if hidden
+        lastFoundRange = null; // Reset last found range
+
         // Focus for manual entry
         document.getElementById('itemCodeInput').focus();
     }
@@ -246,37 +288,104 @@
         const input = document.getElementById('itemCodeInput').value.trim().toLowerCase();
         const selectedStore = document.getElementById('storeFilter').value;
         const resultDiv = document.getElementById('result');
-        
-        if (csvData.length === 0) return;
+        const showRangeBtn = document.getElementById('showRangeBtn');
+        document.getElementById('rangeResult').innerHTML = ""; // Clear previous range results
+
+        lastFoundRange = null; // Reset for each new search
+
+        if (csvData.length === 0) {
+            resultDiv.innerHTML = `<p class="error">Data not loaded yet.</p>`;
+            showRangeBtn.style.display = 'none';
+            showRangeBtn.disabled = true;
+            return;
+        }
 
         const foundItems = csvData.filter(row => {
             const code1 = (row.Item_Code || "").toString().toLowerCase();
             const code2 = (row.Item_scan_code || "").toString().toLowerCase();
             const itemStore = (row.Store || "");
 
-            const matchesCode = input === "" || (code1 === input || code2 === input);
+            // Match required store. If "All Stores" is selected, don't filter by store.
             const matchesStore = selectedStore === "" || itemStore === selectedStore;
+            
+            // Match input code. If input is empty, don't filter by code.
+            const matchesCode = input === "" || (code1 === input || code2 === input);
 
             return matchesCode && matchesStore;
         });
 
-        if (foundItems.length > 0 && (input !== "" || selectedStore !== "")) {
+        if (foundItems.length > 0 && input !== "") { // Only show details if an item code was provided
             let html = "";
-            foundItems.forEach(item => {
+            // Assuming we display the first found item's details for the "main" result
+            const firstFoundItem = foundItems[0]; 
+            lastFoundRange = firstFoundItem.Range || null; // Capture the range
+
+            html += `<div class="item-card">`;
+            for (const [key, value] of Object.entries(firstFoundItem)) {
+                html += `<div class="result-row"><div class="label">${key.replace(/_/g, ' ')}</div><div class="value">${value || '-'}</div></div>`;
+            }
+            html += `</div>`;
+            resultDiv.innerHTML = html;
+
+            // Show and enable the "Show Range Details" button if a range was found
+            if (lastFoundRange) {
+                showRangeBtn.style.display = 'block';
+                showRangeBtn.disabled = false;
+            } else {
+                showRangeBtn.style.display = 'none';
+                showRangeBtn.disabled = true;
+            }
+
+        } else {
+            if (input !== "" || selectedStore !== "") { // If something was searched but not found
+                resultDiv.innerHTML = `<p class="error">Item not found in ${selectedStore === "" ? 'any store' : selectedStore}.</p>`;
+            } else { // Cleared input or initial state
+                resultDiv.innerHTML = "";
+            }
+            showRangeBtn.style.display = 'none';
+            showRangeBtn.disabled = true;
+        }
+    }
+
+    function showRangeDetails() {
+        const selectedStore = document.getElementById('storeFilter').value;
+        const rangeResultDiv = document.getElementById('rangeResult');
+        rangeResultDiv.innerHTML = ""; // Clear previous results
+
+        if (!lastFoundRange) {
+            rangeResultDiv.innerHTML = `<p class="error">No item scanned or item has no Range defined.</p>`;
+            return;
+        }
+
+        const itemsInSameRange = csvData.filter(item => {
+            const itemStore = (item.Store || "");
+            const itemRange = (item.Range || "");
+            
+            // Filter by the stored range and the selected store
+            return itemRange === lastFoundRange && (selectedStore === "" || itemStore === selectedStore);
+        });
+
+        if (itemsInSameRange.length > 0) {
+            let html = `<h3>Items in Range: ${lastFoundRange} (Filtered by: ${selectedStore === "" ? 'All Stores' : selectedStore})</h3><div style="display:flex; flex-wrap:nowrap; overflow-x:auto;">`;
+
+            // Sort them perhaps by Item_Code for consistency
+            itemsInSameRange.sort((a, b) => (a.Item_Code || "").localeCompare(b.Item_Code || "")).forEach(item => {
                 html += `<div class="item-card">`;
                 for (const [key, value] of Object.entries(item)) {
+                    // Exclude the Range itself from the detailed view if desired, or show it.
+                    // For now, including all.
                     html += `<div class="result-row"><div class="label">${key.replace(/_/g, ' ')}</div><div class="value">${value || '-'}</div></div>`;
                 }
                 html += `</div>`;
             });
-            resultDiv.innerHTML = html;
+            html += `</div>`;
+            rangeResultDiv.innerHTML = html;
         } else {
-            if (input !== "" || selectedStore !== "") {
-                resultDiv.innerHTML = `<p class="error">Not found in ${selectedStore || 'Database'}.</p>`;
-            } else {
-                resultDiv.innerHTML = "";
-            }
+            rangeResultDiv.innerHTML = `<p class="error">No other items found in Range "${lastFoundRange}" for ${selectedStore === "" ? 'any store' : selectedStore}.</p>`;
         }
+        
+        // Scroll to the new results section
+        rangeResultDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 </script>
 </body>
