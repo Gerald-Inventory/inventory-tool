@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Multi-Store & Range</title>
+    <title>Inventory Pro - Sales Analytics</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
@@ -33,13 +33,26 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
-        .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        /* Sales Summary Dashboard */
+        .summary-box {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+        }
+        .summary-item { flex: 1; text-align: center; }
+        .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 4px; }
+        .summary-value { font-size: 18px; font-weight: bold; color: #117a8b; }
+
+        .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
         .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
         .value { padding: 10px; width: 60%; font-size: 14px; word-break: break-all; }
         
-        /* Table Styling */
-        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 15px; background: #fff; }
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; background: #fff; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
         .range-table th { background: #f1f3f5; padding: 12px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; text-transform: uppercase; font-size: 10px; }
         .range-table td { padding: 10px; border: 1px solid #dee2e6; text-align: center; white-space: nowrap; }
@@ -47,7 +60,7 @@
 
         input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; margin-left: 5px; }
-        h3 { color: #17a2b8; margin-bottom: 5px; }
+        h3 { color: #17a2b8; margin: 20px 0 5px 0; font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -71,7 +84,7 @@
         <label>Store Filter</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Item Code (Internal or Scan)</label>
+        <label>Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()" inputmode="numeric">
         
         <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE DETAILS</button>
@@ -85,7 +98,7 @@
     const PIN = "1234";
     let csvData = [];
     let html5QrCode;
-    let currentFoundItems = []; // Array to store multiple store matches
+    let currentFoundItems = [];
 
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
@@ -102,9 +115,6 @@
                 csvData = r.data;
                 document.getElementById('fileStatus').innerText = "✅ Database Connected";
                 populateStores();
-            },
-            error: function() {
-                document.getElementById('fileStatus').innerText = "❌ data.csv Not Found";
             }
         });
     }
@@ -125,7 +135,7 @@
                 document.getElementById('reader').innerHTML = "";
                 searchCSV();
             });
-        }).catch(err => alert("Camera error: " + err));
+        }).catch(err => alert("Camera error"));
     }
 
     function fullReset() {
@@ -149,7 +159,6 @@
 
         if (!code) { res.innerHTML = ""; return; }
 
-        // Logic Change: Use .filter to get ALL stores where this code exists
         currentFoundItems = csvData.filter(row => {
             const matchesCode = (row.Item_Code == code || row.Item_scan_code == code);
             const matchesStore = (store === "" || row.Store === store);
@@ -167,13 +176,12 @@
             });
             res.innerHTML = html;
 
-            // Range Button Check (uses first match as reference)
             const rangeCol = Object.keys(currentFoundItems[0]).find(k => k.toLowerCase().includes('range'));
             if (rangeCol && currentFoundItems[0][rangeCol]) {
                 btn.style.display = "block";
             }
         } else {
-            res.innerHTML = "<p style='color:red; text-align:center; font-weight:bold;'>No records found for this code.</p>";
+            res.innerHTML = "<p style='color:red; text-align:center;'>Not found.</p>";
         }
     }
 
@@ -185,8 +193,6 @@
         const rangeVal = referenceItem[rangeCol];
         const selectedStore = document.getElementById('storeFilter').value;
 
-        // Filter: Show range items. 
-        // If "All Stores" is picked, it shows the range for the whole company.
         const items = csvData.filter(row => {
             const matchesRange = row[rangeCol] === rangeVal;
             const matchesStore = (selectedStore === "" || row.Store === selectedStore);
@@ -194,16 +200,36 @@
         });
 
         if (items.length > 0) {
+            // Calculation logic
+            let totalMTD = 0;
+            let totalYTD = 0;
+            items.forEach(row => {
+                totalMTD += parseFloat(row.TY_MTD_Sale_Value || 0);
+                totalYTD += parseFloat(row.TY_YTD_Sale_Value || 0);
+            });
+
             const keys = Object.keys(items[0]);
             let h = `<h3>Range: ${rangeVal} ${selectedStore ? '('+selectedStore+')' : '(Company Wide)'}</h3>`;
+            
+            // Dashboard UI
+            h += `
+            <div class="summary-box">
+                <div class="summary-item">
+                    <div class="summary-label">Range MTD Sales</div>
+                    <div class="summary-value">${totalMTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+                <div class="summary-item" style="border-left: 1px solid #dee2e6;">
+                    <div class="summary-label">Range YTD Sales</div>
+                    <div class="summary-value">${totalYTD.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                </div>
+            </div>`;
+
             h += `<div class="range-container"><table class="range-table"><thead><tr>`;
-            keys.forEach(k => h += `<th>${k}</th>`);
+            keys.forEach(k => h += `<th>${k.replace(/_/g, ' ')}</th>`);
             h += `</tr></thead><tbody>`;
             
             const currentSearchCode = document.getElementById('itemCodeInput').value.trim();
-
             items.forEach(row => {
-                // Highlight the specific item being searched
                 const isMatch = (row.Item_Code == currentSearchCode || row.Item_scan_code == currentSearchCode);
                 h += `<tr class="${isMatch ? 'highlight' : ''}">`;
                 keys.forEach(k => h += `<td>${row[k] || '-'}</td>`);
@@ -211,9 +237,8 @@
             });
             
             h += `</tbody></table></div>`;
-            const rangeResDiv = document.getElementById('rangeResult');
-            rangeResDiv.innerHTML = h;
-            rangeResDiv.scrollIntoView({ behavior: 'smooth' });
+            document.getElementById('rangeResult').innerHTML = h;
+            document.getElementById('rangeResult').scrollIntoView({ behavior: 'smooth' });
         }
     }
 </script>
