@@ -3,17 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Pro - Range View</title>
+    <title>Inventory Pro - Range Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     
     <style>
-        body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        
+        /* Login Styles */
         #loginScreen { text-align: center; padding: 40px 10px; }
-        .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; }
+        .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
+        
         #mainTool { display: none; }
         
+        /* Scanner Styles */
         #reader { 
             width: 100%; 
             border-radius: 8px; 
@@ -30,6 +34,7 @@
             100% { box-shadow: inset 0 0 0px transparent; border: 2px solid #eee; }
         }
         
+        /* UI Components */
         select, input[type="number"] { 
             width: 100%; 
             padding: 15px; 
@@ -42,25 +47,38 @@
         }
 
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: background 0.2s; }
+        button:active { opacity: 0.8; }
+        
         .btn-scan { background: #28a745; }
         .btn-stop { background: #dc3545; display: none; }
         .btn-reset { background: #6c757d; }
-        .btn-range { background: #17a2b8; margin-top: 10px; width: 100%; display: none; }
         #torchBtn { background: #ffc107; color: black; display: none; }
         
-        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; padding: 0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        /* NEW: Range Button Style */
+        #rangeBtn { 
+            background: #17a2b8; 
+            width: 100%; 
+            margin-top: 10px; 
+            display: none; 
+            padding: 18px;
+            font-size: 16px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Results Display */
+        .item-card { background: #fff; border: 1px solid #eee; border-radius: 8px; margin-top: 20px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
         .label { background: #f8f9fa; color: #666; padding: 12px; width: 40%; font-weight: bold; font-size: 11px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
-        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-all; }
+        .value { padding: 12px; width: 60%; color: #333; font-size: 15px; word-break: break-word; }
         
-        /* Horizontal Range Table Styling */
-        .range-container { width: 100%; overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; background: white; }
+        /* Horizontal Range Table */
+        .range-section-title { margin: 25px 0 10px 0; font-size: 18px; color: #17a2b8; border-bottom: 2px solid #17a2b8; display: inline-block; }
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: white; margin-bottom: 30px; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 13px; }
-        .range-table th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 10px; padding: 10px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
-        .range-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; white-space: nowrap; }
-        .current-item { background-color: #fff3cd !important; font-weight: bold; }
+        .range-table th { background: #f8f9fa; color: #666; text-transform: uppercase; font-size: 10px; padding: 12px; border-bottom: 2px solid #dee2e6; white-space: nowrap; }
+        .range-table td { padding: 12px; border-bottom: 1px solid #eee; text-align: center; white-space: nowrap; }
+        .current-item-row { background-color: #fff3cd !important; font-weight: bold; }
 
         .status { text-align: center; font-size: 12px; color: #888; margin-bottom: 10px; }
         .error { color: #d9534f; text-align: center; font-weight: bold; margin-top: 20px; }
@@ -72,16 +90,18 @@
 <audio id="beepSound" src="https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3" preload="auto"></audio>
 
 <div class="container">
+    <!-- Login Screen -->
     <div id="loginScreen">
         <h2>Secure Access</h2>
-        <input type="password" id="passInput" class="login-input" placeholder="Password" inputmode="numeric">
+        <input type="password" id="passInput" class="login-input" placeholder="Enter PIN" inputmode="numeric">
         <button id="loginBtn" onclick="checkPassword()">Login</button>
         <p id="loginError" style="color:red; display:none; margin-top:10px;">Incorrect Password</p>
     </div>
 
+    <!-- Main App -->
     <div id="mainTool">
-        <h2 style="text-align:center;">Inventory Pro</h2>
-        <div id="fileStatus" class="status">Loading database...</div>
+        <h2 style="text-align:center; margin-top: 0;">Inventory Pro</h2>
+        <div id="fileStatus" class="status">Initializing...</div>
         
         <div id="reader"></div>
         
@@ -92,15 +112,16 @@
             <button id="torchBtn" onclick="toggleTorch()">🔦 Flash</button>
         </div>
 
-        <label for="storeFilter">Filter by Store</label>
+        <label for="storeFilter">Current Store</label>
         <select id="storeFilter" onchange="searchCSV()">
             <option value="">All Stores</option>
         </select>
 
-        <label for="itemCodeInput">Item Code</label>
-        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Scan or Type" oninput="searchCSV()">
+        <label for="itemCodeInput">Search Item Code</label>
+        <input type="number" id="itemCodeInput" inputmode="numeric" placeholder="Scan or type code..." oninput="searchCSV()">
         
-        <button id="rangeBtn" class="btn-range" onclick="showRangeDetails()">📊 View Range Details</button>
+        <!-- Range Details Trigger -->
+        <button id="rangeBtn" onclick="showRangeDetails()">📊 VIEW RANGE DETAILS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -110,9 +131,9 @@
 <script>
     const MY_PASSWORD = "1234"; 
     let csvData = [];
-    let currentFoundItem = null; // Track the currently viewed item
     let html5QrCode;
     let isTorchOn = false;
+    let currentFoundItem = null;
 
     function checkPassword() {
         if (document.getElementById('passInput').value === MY_PASSWORD) {
@@ -126,22 +147,24 @@
 
     function loadInventory() {
         Papa.parse('data.csv', {
-            download: true, header: true, skipEmptyLines: true,
+            download: true, 
+            header: true, 
+            skipEmptyLines: true,
             complete: function(results) {
                 csvData = results.data;
                 document.getElementById('fileStatus').innerText = "✅ Database Ready";
                 populateStoreFilter();
             },
             error: function() { 
-                document.getElementById('fileStatus').innerText = "❌ data.csv missing"; 
+                document.getElementById('fileStatus').innerText = "❌ Error: data.csv not found"; 
             }
         });
     }
 
     function populateStoreFilter() {
         const storeFilter = document.getElementById('storeFilter');
-        storeFilter.innerHTML = '<option value="">All Stores</option>';
         const stores = [...new Set(csvData.map(item => item.Store).filter(Boolean))];
+        storeFilter.innerHTML = '<option value="">All Stores</option>';
         stores.sort().forEach(store => {
             const opt = document.createElement('option');
             opt.value = store;
@@ -150,32 +173,38 @@
         });
     }
 
-    // ... (Keep startScanner, stopScanner, resetUI, triggerFeedback, checkTorchSupport, toggleTorch the same)
-    // For brevity, using your existing camera logic here...
+    // --- Scanner Logic ---
     async function startScanner() {
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
+        
         if (startBtn.disabled) return;
-        document.getElementById('result').innerHTML = "";
-        document.getElementById('rangeResult').innerHTML = "";
-        document.getElementById('rangeBtn').style.display = 'none';
+        clearResults();
         startBtn.innerText = "Connecting...";
         startBtn.disabled = true;
+
         try {
             if (html5QrCode) { await html5QrCode.clear(); }
             html5QrCode = new Html5Qrcode("reader");
+            
             const config = { fps: 20, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 };
-            await html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-                triggerFeedback();
-                document.getElementById('itemCodeInput').value = decodedText;
-                stopScanner();
-                searchCSV();
-            });
+
+            await html5QrCode.start(
+                { facingMode: "environment" }, config, 
+                (decodedText) => {
+                    triggerFeedback();
+                    document.getElementById('itemCodeInput').value = decodedText;
+                    stopScanner();
+                    searchCSV();
+                }
+            );
+
             startBtn.style.display = 'none';
             stopBtn.style.display = 'block';
             setTimeout(() => checkTorchSupport(), 1000);
+
         } catch (err) {
-            alert("Camera Error: " + err);
+            alert("Camera Access Denied or Error: " + err);
             resetUI();
         } finally {
             startBtn.innerText = "Camera Scan";
@@ -186,7 +215,9 @@
     function stopScanner() {
         if (html5QrCode && html5QrCode.isScanning) {
             html5QrCode.stop().then(() => resetUI()).catch(() => resetUI());
-        } else { resetUI(); }
+        } else {
+            resetUI();
+        }
     }
 
     function resetUI() {
@@ -211,22 +242,28 @@
             if (track && track.getCapabilities && track.getCapabilities().torch) {
                 document.getElementById('torchBtn').style.display = 'block';
             }
-        } catch (e) {}
+        } catch (e) { console.log("Torch check failed"); }
     }
 
     function toggleTorch() {
         isTorchOn = !isTorchOn;
-        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] }).catch(e => { isTorchOn = false; });
+        html5QrCode.applyVideoConstraints({ advanced: [{ torch: isTorchOn }] })
+            .catch(() => isTorchOn = false);
+    }
+
+    // --- Search & Range Logic ---
+    function clearResults() {
+        document.getElementById('result').innerHTML = "";
+        document.getElementById('rangeResult').innerHTML = "";
+        document.getElementById('rangeBtn').style.display = 'none';
+        currentFoundItem = null;
     }
 
     function fullReset() {
         stopScanner();
         document.getElementById('itemCodeInput').value = "";
         document.getElementById('storeFilter').selectedIndex = 0;
-        document.getElementById('result').innerHTML = "";
-        document.getElementById('rangeResult').innerHTML = "";
-        document.getElementById('rangeBtn').style.display = 'none';
-        currentFoundItem = null;
+        clearResults();
         document.getElementById('itemCodeInput').focus();
     }
 
@@ -236,17 +273,16 @@
         const resultDiv = document.getElementById('result');
         const rangeBtn = document.getElementById('rangeBtn');
         
-        document.getElementById('rangeResult').innerHTML = "";
-        rangeBtn.style.display = 'none';
-        currentFoundItem = null;
+        clearResults();
 
-        if (csvData.length === 0) return;
+        if (csvData.length === 0 || input === "") return;
 
         const foundItems = csvData.filter(row => {
             const code1 = (row.Item_Code || "").toString().toLowerCase();
             const code2 = (row.Item_scan_code || "").toString().toLowerCase();
             const itemStore = (row.Store || "");
-            const matchesCode = input !== "" && (code1 === input || code2 === input);
+            
+            const matchesCode = (code1 === input || code2 === input);
             const matchesStore = selectedStore === "" || itemStore === selectedStore;
             return matchesCode && matchesStore;
         });
@@ -260,45 +296,46 @@
             html += `</div>`;
             resultDiv.innerHTML = html;
 
-            // Show Range button if "Range" column exists and has a value
-            if (currentFoundItem.Range) {
+            // Detect Range column (case insensitive)
+            const rangeKey = Object.keys(currentFoundItem).find(k => k.toLowerCase() === 'range');
+            if (rangeKey && currentFoundItem[rangeKey]) {
                 rangeBtn.style.display = 'block';
             }
         } else {
-            resultDiv.innerHTML = input !== "" ? `<p class="error">Not found.</p>` : "";
+            resultDiv.innerHTML = `<p class="error">Item not found.</p>`;
         }
     }
 
     function showRangeDetails() {
-        if (!currentFoundItem || !currentFoundItem.Range) return;
-
-        const rangeValue = currentFoundItem.Range;
+        const rangeKey = Object.keys(currentFoundItem).find(k => k.toLowerCase() === 'range');
+        const rangeValue = currentFoundItem[rangeKey];
         const storeValue = currentFoundItem.Store;
         const rangeResultDiv = document.getElementById('rangeResult');
 
-        // Filter all items with same Range AND same Store
+        // Filter items with matching range and store
         const rangeItems = csvData.filter(row => 
-            row.Range === rangeValue && row.Store === storeValue
+            row[rangeKey] === rangeValue && row.Store === storeValue
         );
 
         if (rangeItems.length > 0) {
             let headers = Object.keys(rangeItems[0]);
-            let html = `<h3>Range: ${rangeValue} (${storeValue})</h3>`;
+            let html = `<div class="range-section-title">Range: ${rangeValue}</div>`;
             html += `<div class="range-container"><table class="range-table"><thead><tr>`;
             
             headers.forEach(h => html += `<th>${h.replace(/_/g, ' ')}</th>`);
             html += `</tr></thead><tbody>`;
 
             rangeItems.forEach(item => {
-                // Highlight the row if it's the item currently in the search box
-                const isCurrent = item.Item_Code === currentFoundItem.Item_Code;
-                html += `<tr class="${isCurrent ? 'current-item' : ''}">`;
+                const isCurrent = (item.Item_Code === currentFoundItem.Item_Code);
+                html += `<tr class="${isCurrent ? 'current-item-row' : ''}">`;
                 headers.forEach(h => html += `<td>${item[h] || '-'}</td>`);
                 html += `</tr>`;
             });
 
             html += `</tbody></table></div>`;
             rangeResultDiv.innerHTML = html;
+            
+            // Smooth scroll to table
             rangeResultDiv.scrollIntoView({ behavior: 'smooth' });
         }
     }
