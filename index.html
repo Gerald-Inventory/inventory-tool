@@ -192,6 +192,8 @@
             });
             res.innerHTML = html;
             document.getElementById('rangeBtn').style.display = "block";
+            // Clear specific subclass filter on new item search to avoid confusion
+            selectedSubclassFilter = "";
             if(document.getElementById('rangeResult').innerHTML !== "") showRangeDetails(currentViewType);
         } else {
             res.innerHTML = "<p style='color:red; text-align:center;'>Product Not Found</p>";
@@ -214,8 +216,9 @@
         const rangeVal = firstMatch[rangeCol];
         const depVal = firstMatch[depCol];
 
-        // Populate Subclass Dropdown options based on the Department
-        const subclassesInDep = [...new Set(csvData.filter(r => r[depCol] === depVal).map(r => r[subCol]))].sort();
+        // LOGIC: Filter only subclasses that belong to THIS SPECIFIC RANGE
+        const rangeRowsGlobal = csvData.filter(r => r[rangeCol] === rangeVal);
+        const subclassesInRange = [...new Set(rangeRowsGlobal.map(r => r[subCol]))].sort();
 
         const activeDays = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? daysYTD : daysMTD;
         const targetCol = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
@@ -237,12 +240,12 @@
             <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">RANGE YTD</button>
         </div>`;
 
-        // Add Subclass Filter dropdown if in SUB view
+        // Add Smart Subclass Filter dropdown if in SUB view
         if (currentViewType === 'SUB') {
-            output += `<label class="sub-filter-label">Filter Subclass Summary By:</label>
+            output += `<label class="sub-filter-label">Available Subclasses in Range:</label>
             <select id="subclassFilter" onchange="updateSubFilter(this.value)">
-                <option value="">-- All Subclasses in Dept --</option>`;
-            subclassesInDep.forEach(s => {
+                <option value="">-- All Subclasses in this Range --</option>`;
+            subclassesInRange.forEach(s => {
                 output += `<option value="${s}" ${selectedSubclassFilter === s ? 'selected' : ''}>${s}</option>`;
             });
             output += `</select>`;
@@ -250,30 +253,40 @@
 
         if (currentViewType === 'DEP' || currentViewType === 'SUB') {
             const isSub = currentViewType === 'SUB';
-            const filterCol = isSub ? subCol : depCol;
-            // If Subclass filter is active, use it, otherwise use the item's default dep/sub
-            const filterVal = (isSub && selectedSubclassFilter !== "") ? selectedSubclassFilter : (isSub ? firstMatch[subCol] : depVal);
-            
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
 
             output += `<div class="range-container"><table class="range-table">
-                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sales</th><th>${isSub ? 'Subclass' : 'Dept'} Total</th><th>Contr %</th></tr></thead><tbody>`;
+                <thead><tr><th>Store</th><th>Range Sales</th><th>Range SPD</th><th>Total ${isSub ? 'Subclass' : 'Dept'}</th><th>Contr %</th></tr></thead><tbody>`;
             
             allStores.forEach(s => {
-                const sRows = csvData.filter(r => r.Store === s && (selectedSubclassFilter !== "" ? r[subCol] === selectedSubclassFilter : r[filterCol] === filterVal));
-                let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
-                let dS = 0; sRows.forEach(r => dS += cleanNum(r[targetCol]));
+                // Determine base comparison group
+                const baseRows = csvData.filter(r => {
+                    const isStore = r.Store === s;
+                    const isDeptMatch = r[depCol] === depVal;
+                    const isSubMatch = selectedSubclassFilter !== "" ? r[subCol] === selectedSubclassFilter : true;
+                    return isStore && isDeptMatch && isSubMatch;
+                });
+
+                // Range sales within that store/group
+                let rS = 0; 
+                baseRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
+                
+                // Total group sales for contribution
+                let totalS = 0; 
+                baseRows.forEach(r => totalS += cleanNum(r[targetCol]));
+
                 const storeSPD = Math.round(rS / activeDays);
                 output += `<tr class="${s === selectedStore ? 'highlight-row' : ''}">
                     <td>${s}</td>
-                    <td class="spd-col">${storeSPD.toLocaleString()}</td>
                     <td>${rS.toLocaleString()}</td>
-                    <td>${dS.toLocaleString()}</td>
-                    <td><b>${dS>0?((rS/dS)*100).toFixed(1):0}%</b></td>
+                    <td class="spd-col">${storeSPD.toLocaleString()}</td>
+                    <td>${totalS.toLocaleString()}</td>
+                    <td><b>${totalS>0?((rS/totalS)*100).toFixed(1):0}%</b></td>
                 </tr>`;
             });
             output += `</tbody></table></div>`;
         } else {
+            // Standard Range Views (MTD/YTD Table)
             const rangeRows = csvData.filter(row => row[rangeCol] === rangeVal);
             let rangeTotal = 0; rangeRows.forEach(r => rangeTotal += cleanNum(r[targetCol]));
 
