@@ -20,12 +20,14 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
-        .set-btn { background: #20c997 !important; padding: 10px !important; flex: 0.5; height: 45px; margin-top: 15px; }
+        .day-btn { padding: 10px !important; flex: 0.4; height: 45px; margin-top: 15px; font-size: 11px; }
+        .set-btn { background: #20c997 !important; }
+        .reset-day-btn { background: #e83e8c !important; }
 
-        .day-inputs { display: flex; gap: 10px; margin-bottom: 15px; background: #e9ecef; padding: 12px; border-radius: 8px; align-items: flex-start; }
+        .day-inputs { display: flex; gap: 8px; margin-bottom: 15px; background: #e9ecef; padding: 12px; border-radius: 8px; align-items: flex-start; }
         .day-field { flex: 1; }
-        .day-field label { font-size: 10px !important; margin-bottom: 4px; display: block; color: #495057; }
-        .day-field input { margin: 0; padding: 10px; font-size: 16px; border: 1px solid #ced4da; }
+        .day-field label { font-size: 9px !important; margin-bottom: 4px; display: block; color: #495057; font-weight: bold;}
+        .day-field input { margin: 0; padding: 10px; font-size: 16px; border: 1px solid #ced4da; border-radius: 6px; width: 100%; }
 
         .toggle-group { display: flex; background: #eee; border-radius: 8px; padding: 4px; margin-bottom: 15px; gap: 4px; }
         .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; font-size: 11px; }
@@ -43,7 +45,7 @@
 
         .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 11px; }
-        .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; font-size: 9px; }
+        .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; font-size: 9px; text-transform: uppercase; }
         .range-table td { padding: 8px; border: 1px solid #dee2e6; text-align: center; }
         .highlight-row { background: #fff3cd !important; font-weight: bold; }
         .spd-col { background: #e3f2fd; font-weight: bold; color: #0d47a1; }
@@ -67,16 +69,16 @@
         
         <div class="btn-group">
             <button style="background:#28a745" onclick="startScanner()">Camera Scan</button>
-            <button style="background:#6c757d" onclick="fullReset()">Reset</button>
+            <button style="background:#6c757d" onclick="fullReset()">Main Reset</button>
         </div>
 
-        <label>Select Store Filter</label>
+        <label>Store Filter</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Enter Item Code</label>
+        <label>Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()">
         
-        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW PERFORMANCE ANALYSIS</button>
+        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW RANGE ANALYSIS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -144,10 +146,16 @@
         return isNaN(n) ? 0 : n;
     }
 
-    function updateDays() {
+    function setDays() {
         daysMTD = parseInt(document.getElementById('inputMTD').value) || 1;
         daysYTD = parseInt(document.getElementById('inputYTD').value) || 1;
         showRangeDetails(currentViewType);
+    }
+
+    function resetDayInputs() {
+        document.getElementById('inputMTD').value = "";
+        document.getElementById('inputYTD').value = "";
+        document.getElementById('inputMTD').focus();
     }
 
     function searchCSV() {
@@ -171,17 +179,18 @@
         const rangeVal = firstMatch[rangeCol];
         const depVal = firstMatch[depCol];
 
-        const activeDays = (currentViewType === 'MTD') ? daysMTD : daysYTD;
-        const targetCol = (currentViewType === 'MTD') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
+        const activeDays = (currentViewType === 'MTD' || currentViewType === 'DEP') ? daysMTD : daysYTD;
+        // Use MTD for DEP Summary by default as it's more current
+        const targetCol = (currentViewType === 'MTD' || currentViewType === 'DEP') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
 
-        let output = `<h3 style="color:#17a2b8;">${rangeVal} Performance</h3>`;
+        let output = `<h3 style="color:#17a2b8;">${rangeVal} Analysis</h3>`;
         
-        // Day Inputs with SET button
         output += `
         <div class="day-inputs">
-            <div class="day-field"><label>MTD DAYS</label><input type="number" id="inputMTD" value="${daysMTD}"></div>
-            <div class="day-field"><label>YTD DAYS</label><input type="number" id="inputYTD" value="${daysYTD}"></div>
-            <button class="set-btn" onclick="updateDays()">SET</button>
+            <div class="day-field"><label>MTD DAYS</label><input type="number" id="inputMTD" value="${daysMTD}" placeholder="0"></div>
+            <div class="day-field"><label>YTD DAYS</label><input type="number" id="inputYTD" value="${daysYTD}" placeholder="0"></div>
+            <button class="day-btn set-btn" onclick="setDays()">SET</button>
+            <button class="day-btn reset-day-btn" onclick="resetDayInputs()">CLR</button>
         </div>
         <div class="toggle-group">
             <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP SUMMARY</button>
@@ -192,12 +201,19 @@
         if (currentViewType === 'DEP') {
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
             output += `<div class="range-container"><table class="range-table">
-                <thead><tr><th>Store</th><th>Range Sale</th><th>Dept Total</th><th>Contr %</th></tr></thead><tbody>`;
+                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sale</th><th>Dept Total</th><th>Contr %</th></tr></thead><tbody>`;
             allStores.forEach(s => {
                 const sRows = csvData.filter(r => r.Store === s && r[depCol] === depVal);
                 let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
                 let dS = 0; sRows.forEach(r => dS += cleanNum(r[targetCol]));
-                output += `<tr class="${s === selectedStore ? 'highlight-row' : ''}"><td>${s}</td><td>${rS.toLocaleString()}</td><td>${dS.toLocaleString()}</td><td><b>${dS>0?((rS/dS)*100).toFixed(1):0}%</b></td></tr>`;
+                const storeSPD = Math.round(rS / activeDays);
+                output += `<tr class="${s === selectedStore ? 'highlight-row' : ''}">
+                    <td>${s}</td>
+                    <td class="spd-col">${storeSPD.toLocaleString()}</td>
+                    <td>${rS.toLocaleString()}</td>
+                    <td>${dS.toLocaleString()}</td>
+                    <td><b>${dS>0?((rS/dS)*100).toFixed(1):0}%</b></td>
+                </tr>`;
             });
             output += `</tbody></table></div>`;
         } else {
