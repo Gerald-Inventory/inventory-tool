@@ -9,7 +9,7 @@
     
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
-        .container { max-width: 700px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
@@ -17,47 +17,48 @@
         #mainTool { display: none; }
         #reader { width: 100%; border-radius: 8px; overflow: hidden; margin-bottom: 15px; background: #000; min-height: 250px; border: 2px solid #eee; }
 
-        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-        button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
+        /* Day Input Styling */
+        .day-inputs { display: flex; gap: 8px; margin-bottom: 15px; background: #e9ecef; padding: 12px; border-radius: 8px; align-items: flex-end; }
+        .day-field { flex: 1; }
+        .day-field label { font-size: 10px !important; margin-bottom: 4px; display: block; color: #495057; font-weight: bold;}
+        .day-field input { margin: 0; padding: 10px; font-size: 16px; border: 1px solid #ced4da; border-radius: 6px; width: 100%; }
+        
+        .action-btn { padding: 10px !important; flex: 0.5; height: 42px; font-size: 12px; }
+        .set-btn { background: #20c997 !important; }
+        .reset-day-btn { background: #e83e8c !important; }
+
         .toggle-group { display: flex; background: #eee; border-radius: 8px; padding: 4px; margin-bottom: 15px; gap: 4px; }
         .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; font-size: 11px; }
         .toggle-btn.active { background: white; color: #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
         #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; cursor: pointer; }
 
-        .day-inputs { display: flex; gap: 10px; margin-bottom: 15px; background: #f1f3f5; padding: 10px; border-radius: 8px; }
-        .day-field { flex: 1; }
-        .day-field label { font-size: 9px !important; margin-bottom: 2px; display: block; }
-        .day-field input { margin: 0; padding: 8px; font-size: 14px; }
-
-        .insight-banner { background: #fff3cd; border-left: 5px solid #ffc107; padding: 12px; margin: 15px 0; border-radius: 4px; font-size: 13px; color: #856404; }
-        .summary-section { margin: 15px 0; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; background: #fff; }
-        .summary-title { background: #6c757d; color: white; padding: 5px 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; display: flex; justify-content: space-between; }
+        .summary-section { margin: 15px 0; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; }
+        .summary-title { background: #6c757d; color: white; padding: 6px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
         .summary-box { display: flex; background: #f8f9fa; padding: 10px; }
         .summary-item { flex: 1; text-align: center; border-right: 1px solid #dee2e6; }
         .summary-item:last-child { border-right: none; }
-        .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; margin-bottom: 2px; }
+        .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; }
         .summary-value { font-size: 15px; font-weight: bold; color: #117a8b; }
 
-        .badge { padding: 2px 6px; border-radius: 4px; font-size: 9px; text-transform: uppercase; font-weight: bold; margin-left: 5px; }
-        .badge-top { background: #d4edda; color: #155724; }
-        .badge-low { background: #f8d7da; color: #721c24; }
-
-        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; background: #fff; }
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 11px; }
-        .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; text-transform: uppercase; font-size: 9px; }
+        .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; font-size: 9px; text-transform: uppercase; }
         .range-table td { padding: 8px; border: 1px solid #dee2e6; text-align: center; }
+        
         .highlight-row { background: #fff3cd !important; font-weight: bold; }
+        .spd-col { background: #e3f2fd; font-weight: bold; color: #0d47a1; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
-        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; border-right: 1px solid #f0f0f0; }
+        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; }
         .value { padding: 10px; width: 60%; font-size: 14px; }
 
         input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
-        h3 { color: #17a2b8; margin: 20px 0 5px 0; font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -75,16 +76,16 @@
         
         <div class="btn-group">
             <button style="background:#28a745" onclick="startScanner()">Camera Scan</button>
-            <button style="background:#6c757d" onclick="fullReset()">Reset</button>
+            <button style="background:#6c757d" onclick="fullReset()">Main Reset</button>
         </div>
 
-        <label>Select Store Filter</label>
+        <label>Store Filter</label>
         <select id="storeFilter" onchange="searchCSV()"></select>
 
-        <label>Enter Item Code</label>
+        <label>Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()">
         
-        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW PERFORMANCE ANALYSIS</button>
+        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW RANGE ANALYSIS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -97,6 +98,8 @@
     let html5QrCode;
     let currentFoundItems = [];
     let currentViewType = 'YTD'; 
+    let daysMTD = 1;
+    let daysYTD = 1;
 
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
@@ -150,12 +153,24 @@
         return isNaN(n) ? 0 : n;
     }
 
+    // Logic for the NEW SET BUTTON
+    function updateAnalysisDays() {
+        daysMTD = parseInt(document.getElementById('inputMTD').value) || 1;
+        daysYTD = parseInt(document.getElementById('inputYTD').value) || 1;
+        showRangeDetails(currentViewType);
+    }
+
+    function clearDayInputs() {
+        document.getElementById('inputMTD').value = "";
+        document.getElementById('inputYTD').value = "";
+    }
+
     function searchCSV() {
         const code = document.getElementById('itemCodeInput').value.trim();
         const store = document.getElementById('storeFilter').value;
-        const btn = document.getElementById('rangeBtn');
         const res = document.getElementById('result');
-        if (!code) { res.innerHTML = ""; btn.style.display="none"; return; }
+        
+        if (!code) { res.innerHTML = ""; document.getElementById('rangeBtn').style.display="none"; return; }
 
         currentFoundItems = csvData.filter(row => (row.Item_Code == code || row.Item_scan_code == code) && (store === "" || row.Store === store));
 
@@ -167,9 +182,10 @@
                 html += '</div>';
             });
             res.innerHTML = html;
-            btn.style.display = "block";
+            document.getElementById('rangeBtn').style.display = "block";
         } else {
             res.innerHTML = "<p style='color:red; text-align:center;'>Product Not Found</p>";
+            document.getElementById('rangeBtn').style.display = "none";
         }
     }
 
@@ -179,52 +195,54 @@
         
         const firstMatch = currentFoundItems[0];
         const selectedStore = document.getElementById('storeFilter').value;
-        const rangeColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
-        const depColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
-        const rangeVal = firstMatch[rangeColName];
-        const depVal = firstMatch[depColName];
+        const rangeCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
+        const depCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
+        const rangeVal = firstMatch[rangeCol];
+        const depVal = firstMatch[depCol];
 
-        const mtdDays = parseInt(document.getElementById('daysMTD')?.value) || 1;
-        const ytdDays = parseInt(document.getElementById('daysYTD')?.value) || 1;
-        const activeDays = (currentViewType === 'MTD') ? mtdDays : ytdDays;
-        const targetCol = (currentViewType === 'MTD') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
+        const activeDays = (currentViewType === 'MTD' || currentViewType === 'DEP') ? daysMTD : daysYTD;
+        const targetCol = (currentViewType === 'MTD' || currentViewType === 'DEP') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
 
-        let output = `<h3>Analysis: ${rangeVal}</h3>`;
+        let output = `<h3 style="color:#17a2b8;">Analysis: ${rangeVal}</h3>`;
         
-        // Days Input Header
+        // MANUAL ENTRY SECTION WITH SET BUTTON
         output += `
         <div class="day-inputs">
-            <div class="day-field"><label>MTD DAYS</label><input type="number" id="daysMTD" value="${mtdDays}" oninput="showRangeDetails()"></div>
-            <div class="day-field"><label>YTD DAYS</label><input type="number" id="daysYTD" value="${ytdDays}" oninput="showRangeDetails()"></div>
+            <div class="day-field"><label>MTD DAYS</label><input type="number" id="inputMTD" value="${daysMTD}"></div>
+            <div class="day-field"><label>YTD DAYS</label><input type="number" id="inputYTD" value="${daysYTD}"></div>
+            <button class="action-btn set-btn" onclick="updateAnalysisDays()">SET</button>
+            <button class="action-btn reset-day-btn" onclick="clearDayInputs()">CLR</button>
         </div>
         <div class="toggle-group">
-            <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP Summary</button>
-            <button class="toggle-btn ${currentViewType === 'MTD' ? 'active' : ''}" onclick="showRangeDetails('MTD')">Range MTD</button>
-            <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">Range YTD</button>
+            <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP SUMMARY</button>
+            <button class="toggle-btn ${currentViewType === 'MTD' ? 'active' : ''}" onclick="showRangeDetails('MTD')">RANGE MTD</button>
+            <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">RANGE YTD</button>
         </div>`;
 
         if (currentViewType === 'DEP') {
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
             output += `<div class="range-container"><table class="range-table">
-                <thead><tr><th>Store</th><th>Range Sale</th><th>Dept Total</th><th>Contr %</th></tr></thead><tbody>`;
+                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Total</th><th>Dept Total</th><th>Contr %</th></tr></thead><tbody>`;
             allStores.forEach(s => {
-                const sRows = csvData.filter(r => r.Store === s && r[depColName] === depVal);
-                let rS = 0; sRows.filter(r => r[rangeColName] === rangeVal).forEach(r => rS += cleanNum(r.TY_YTD_Sale_Value));
-                let dS = 0; sRows.forEach(r => dS += cleanNum(r.TY_YTD_Sale_Value));
-                output += `<tr class="${s === selectedStore ? 'highlight-row' : ''}"><td>${s}</td><td>${rS.toLocaleString()}</td><td>${dS.toLocaleString()}</td><td><b>${dS>0?((rS/dS)*100).toFixed(1):0}%</b></td></tr>`;
+                const sRows = csvData.filter(r => r.Store === s && r[depCol] === depVal);
+                let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
+                let dS = 0; sRows.forEach(r => dS += cleanNum(r[targetCol]));
+                const storeSPD = Math.round(rS / activeDays);
+                output += `<tr class="${s === selectedStore ? 'highlight-row' : ''}">
+                    <td>${s}</td>
+                    <td class="spd-col">${storeSPD.toLocaleString()}</td>
+                    <td>${rS.toLocaleString()}</td>
+                    <td>${dS.toLocaleString()}</td>
+                    <td><b>${dS>0?((rS/dS)*100).toFixed(1):0}%</b></td>
+                </tr>`;
             });
             output += `</tbody></table></div>`;
         } else {
-            const globalRows = csvData.filter(row => row[rangeColName] === rangeVal);
-            const numStores = [...new Set(globalRows.map(r => r.Store))].length || 1;
+            const globalRows = csvData.filter(row => row[rangeCol] === rangeVal);
             let gTotal = 0; globalRows.forEach(row => gTotal += cleanNum(row[targetCol]));
             const localRows = globalRows.filter(row => selectedStore === "" || row.Store === selectedStore);
             let lTotal = 0; localRows.forEach(row => lTotal += cleanNum(row[targetCol]));
             
-            let sorted = [...localRows].sort((a,b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
-            const topId = sorted[0]?.Item_Code;
-            const lowId = sorted.length > 2 ? sorted[sorted.length-1].Item_Code : null;
-
             output += `<div class="summary-section"><div class="summary-title">Global Range Stats (${currentViewType})</div><div class="summary-box">
                 <div class="summary-item"><div class="summary-label">Total Sales</div><div class="summary-value">${gTotal.toLocaleString()}</div></div>
                 <div class="summary-item"><div class="summary-label">Global SPD</div><div class="summary-value">${Math.round(gTotal/activeDays).toLocaleString()}</div></div>
@@ -238,20 +256,15 @@
             }
 
             const allHeaders = Object.keys(globalRows[0]);
-            output += `<div class="range-container"><table class="range-table"><thead><tr>`;
+            output += `<div class="range-container"><table class="range-table"><thead><tr><th>SPD</th>`;
             allHeaders.forEach(h => output += `<th>${h.replace(/_/g, ' ')}</th>`);
             output += `</tr></thead><tbody>`;
             localRows.forEach(row => {
                 const isMatch = (row.Item_Code == document.getElementById('itemCodeInput').value.trim());
+                const itemSPD = Math.round(cleanNum(row[targetCol]) / activeDays);
                 output += `<tr class="${isMatch ? 'highlight-row' : ''}">`;
-                allHeaders.forEach(h => {
-                    let v = row[h] || '-';
-                    if (h === 'Item_Code') {
-                        if (row.Item_Code === topId) v += `<span class="badge badge-top">Top</span>`;
-                        if (row.Item_Code === lowId) v += `<span class="badge badge-low">Low</span>`;
-                    }
-                    output += `<td>${v}</td>`;
-                });
+                output += `<td class="spd-col">${itemSPD.toLocaleString()}</td>`;
+                allHeaders.forEach(h => output += `<td>${row[h] || '-'}</td>`);
                 output += `</tr>`;
             });
             output += `</tbody></table></div>`;
