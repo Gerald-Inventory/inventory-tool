@@ -9,7 +9,7 @@
     
     <style>
         body { font-family: -apple-system, sans-serif; padding: 15px; background: #f4f7f6; margin: 0; color: #333; }
-        .container { max-width: 800px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .container { max-width: 950px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         
         #loginScreen { text-align: center; padding: 40px 10px; }
         .login-input { width: 100%; padding: 15px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; text-align: center; box-sizing: border-box; }
@@ -20,7 +20,6 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; }
         button { flex: 1; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
-        /* Day Input Styling */
         .day-inputs { display: flex; gap: 8px; margin-bottom: 15px; background: #e9ecef; padding: 12px; border-radius: 8px; align-items: flex-end; }
         .day-field { flex: 1; }
         .day-field label { font-size: 10px !important; margin-bottom: 4px; display: block; color: #495057; font-weight: bold;}
@@ -38,19 +37,24 @@
 
         .summary-section { margin: 15px 0; border: 1px solid #e9ecef; border-radius: 10px; overflow: hidden; }
         .summary-title { background: #6c757d; color: white; padding: 6px 12px; font-size: 11px; font-weight: bold; text-transform: uppercase; }
-        .summary-box { display: flex; background: #f8f9fa; padding: 10px; }
-        .summary-item { flex: 1; text-align: center; border-right: 1px solid #dee2e6; }
+        .summary-box { display: flex; background: #f8f9fa; padding: 10px; flex-wrap: wrap; }
+        .summary-item { flex: 1; min-width: 100px; text-align: center; border-right: 1px solid #dee2e6; padding: 5px; }
         .summary-item:last-child { border-right: none; }
         .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; }
         .summary-value { font-size: 15px; font-weight: bold; color: #117a8b; }
 
-        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; }
+        /* Badges */
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; text-transform: uppercase; font-weight: 900; display: inline-block; }
+        .badge-top { background: #28a745; color: white; box-shadow: 0 2px 4px rgba(40,167,69,0.3); }
+        .badge-low { background: #dc3545; color: white; box-shadow: 0 2px 4px rgba(220,53,69,0.3); }
+
+        .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff; margin-top: 10px; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 11px; }
-        .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; font-size: 9px; text-transform: uppercase; }
-        .range-table td { padding: 8px; border: 1px solid #dee2e6; text-align: center; }
+        .range-table th { background: #f1f3f5; padding: 12px 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; font-size: 9px; text-transform: uppercase; }
+        .range-table td { padding: 10px 8px; border: 1px solid #dee2e6; text-align: center; }
         
         .highlight-row { background: #fff3cd !important; font-weight: bold; }
-        .spd-col { background: #e3f2fd; font-weight: bold; color: #0d47a1; }
+        .spd-col { background: #e3f2fd; font-weight: bold; color: #0d47a1; font-size: 13px; }
 
         .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
         .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
@@ -76,7 +80,7 @@
         
         <div class="btn-group">
             <button style="background:#28a745" onclick="startScanner()">Camera Scan</button>
-            <button style="background:#6c757d" onclick="fullReset()">Main Reset</button>
+            <button style="background:#6c757d" onclick="fullReset()">Reset All</button>
         </div>
 
         <label>Store Filter</label>
@@ -85,7 +89,7 @@
         <label>Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()">
         
-        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW RANGE ANALYSIS</button>
+        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW RANGE PERFORMANCE</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -153,7 +157,6 @@
         return isNaN(n) ? 0 : n;
     }
 
-    // Logic for the NEW SET BUTTON
     function updateAnalysisDays() {
         daysMTD = parseInt(document.getElementById('inputMTD').value) || 1;
         daysYTD = parseInt(document.getElementById('inputYTD').value) || 1;
@@ -169,7 +172,6 @@
         const code = document.getElementById('itemCodeInput').value.trim();
         const store = document.getElementById('storeFilter').value;
         const res = document.getElementById('result');
-        
         if (!code) { res.innerHTML = ""; document.getElementById('rangeBtn').style.display="none"; return; }
 
         currentFoundItems = csvData.filter(row => (row.Item_Code == code || row.Item_scan_code == code) && (store === "" || row.Store === store));
@@ -183,6 +185,7 @@
             });
             res.innerHTML = html;
             document.getElementById('rangeBtn').style.display = "block";
+            if(document.getElementById('rangeResult').innerHTML !== "") showRangeDetails(currentViewType);
         } else {
             res.innerHTML = "<p style='color:red; text-align:center;'>Product Not Found</p>";
             document.getElementById('rangeBtn').style.display = "none";
@@ -195,17 +198,19 @@
         
         const firstMatch = currentFoundItems[0];
         const selectedStore = document.getElementById('storeFilter').value;
+        
+        // Find Column Names
         const rangeCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
         const depCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
         const rangeVal = firstMatch[rangeCol];
         const depVal = firstMatch[depCol];
 
-        const activeDays = (currentViewType === 'MTD' || currentViewType === 'DEP') ? daysMTD : daysYTD;
-        const targetCol = (currentViewType === 'MTD' || currentViewType === 'DEP') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
+        const activeDays = (currentViewType === 'YTD') ? daysYTD : daysMTD;
+        const targetCol = (currentViewType === 'YTD') ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
 
-        let output = `<h3 style="color:#17a2b8;">Analysis: ${rangeVal}</h3>`;
+        let output = `<h3 style="color:#17a2b8; margin-top:20px;">Range: ${rangeVal}</h3>`;
         
-        // MANUAL ENTRY SECTION WITH SET BUTTON
+        // Manual Days Input
         output += `
         <div class="day-inputs">
             <div class="day-field"><label>MTD DAYS</label><input type="number" id="inputMTD" value="${daysMTD}"></div>
@@ -222,7 +227,7 @@
         if (currentViewType === 'DEP') {
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
             output += `<div class="range-container"><table class="range-table">
-                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Total</th><th>Dept Total</th><th>Contr %</th></tr></thead><tbody>`;
+                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sales</th><th>Dept Total</th><th>Range Contr %</th></tr></thead><tbody>`;
             allStores.forEach(s => {
                 const sRows = csvData.filter(r => r.Store === s && r[depCol] === depVal);
                 let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
@@ -238,31 +243,43 @@
             });
             output += `</tbody></table></div>`;
         } else {
-            const globalRows = csvData.filter(row => row[rangeCol] === rangeVal);
-            let gTotal = 0; globalRows.forEach(row => gTotal += cleanNum(row[targetCol]));
-            const localRows = globalRows.filter(row => selectedStore === "" || row.Store === selectedStore);
-            let lTotal = 0; localRows.forEach(row => lTotal += cleanNum(row[targetCol]));
+            // Logic for Range Contribution
+            const deptRows = csvData.filter(row => row[depCol] === depVal);
+            let deptTotal = 0; deptRows.forEach(r => deptTotal += cleanNum(r[targetCol]));
+
+            const rangeRows = csvData.filter(row => row[rangeCol] === rangeVal);
+            let rangeTotal = 0; rangeRows.forEach(r => rangeTotal += cleanNum(r[targetCol]));
+            const contributionPct = deptTotal > 0 ? ((rangeTotal / deptTotal) * 100).toFixed(1) : 0;
+
+            // Filter for Table Display
+            const displayRows = rangeRows.filter(row => selectedStore === "" || row.Store === selectedStore);
             
-            output += `<div class="summary-section"><div class="summary-title">Global Range Stats (${currentViewType})</div><div class="summary-box">
-                <div class="summary-item"><div class="summary-label">Total Sales</div><div class="summary-value">${gTotal.toLocaleString()}</div></div>
-                <div class="summary-item"><div class="summary-label">Global SPD</div><div class="summary-value">${Math.round(gTotal/activeDays).toLocaleString()}</div></div>
+            // RANKING LOGIC (For Badges)
+            let sortedForRank = [...displayRows].sort((a,b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
+            const topId = sortedForRank.length > 0 ? sortedForRank[0].Item_Code : null;
+            const lowId = sortedForRank.length > 1 ? sortedForRank[sortedForRank.length - 1].Item_Code : null;
+
+            output += `<div class="summary-section"><div class="summary-title">Performance Summary (${currentViewType})</div><div class="summary-box">
+                <div class="summary-item"><div class="summary-label">Total Range Sales</div><div class="summary-value">${rangeTotal.toLocaleString()}</div></div>
+                <div class="summary-item"><div class="summary-label">Global Range SPD</div><div class="summary-value">${Math.round(rangeTotal/activeDays).toLocaleString()}</div></div>
+                <div class="summary-item"><div class="summary-label">Dept Contribution</div><div class="summary-value">${contributionPct}%</div></div>
             </div></div>`;
 
-            if (selectedStore) {
-                output += `<div class="summary-section"><div class="summary-title">Store: ${selectedStore}</div><div class="summary-box">
-                    <div class="summary-item"><div class="summary-label">Store Total</div><div class="summary-value">${lTotal.toLocaleString()}</div></div>
-                    <div class="summary-item"><div class="summary-label">Store SPD</div><div class="summary-value">${Math.round(lTotal/activeDays).toLocaleString()}</div></div>
-                </div></div>`;
-            }
-
-            const allHeaders = Object.keys(globalRows[0]);
-            output += `<div class="range-container"><table class="range-table"><thead><tr><th>SPD</th>`;
+            const allHeaders = Object.keys(rangeRows[0]);
+            output += `<div class="range-container"><table class="range-table"><thead><tr><th>RANK</th><th>SPD</th>`;
             allHeaders.forEach(h => output += `<th>${h.replace(/_/g, ' ')}</th>`);
             output += `</tr></thead><tbody>`;
-            localRows.forEach(row => {
-                const isMatch = (row.Item_Code == document.getElementById('itemCodeInput').value.trim());
+            
+            displayRows.forEach(row => {
+                const isCurrentItem = (row.Item_Code == document.getElementById('itemCodeInput').value.trim());
                 const itemSPD = Math.round(cleanNum(row[targetCol]) / activeDays);
-                output += `<tr class="${isMatch ? 'highlight-row' : ''}">`;
+                
+                let rankBadge = "";
+                if (row.Item_Code === topId && cleanNum(row[targetCol]) > 0) rankBadge = `<span class="badge badge-top">TOP</span>`;
+                else if (row.Item_Code === lowId) rankBadge = `<span class="badge badge-low">LOW</span>`;
+
+                output += `<tr class="${isCurrentItem ? 'highlight-row' : ''}">`;
+                output += `<td>${rankBadge}</td>`;
                 output += `<td class="spd-col">${itemSPD.toLocaleString()}</td>`;
                 allHeaders.forEach(h => output += `<td>${row[h] || '-'}</td>`);
                 output += `</tr>`;
