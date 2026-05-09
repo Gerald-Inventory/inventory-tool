@@ -41,16 +41,16 @@
         .badge-top { background: #d4edda; color: #155724; }
         .badge-low { background: #f8d7da; color: #721c24; }
 
-        .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
-        .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
-        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
-        .value { padding: 10px; width: 60%; font-size: 14px; word-break: break-all; }
-        
         .range-container { width: 100%; overflow-x: auto; border: 1px solid #ddd; border-radius: 8px; margin-top: 10px; background: #fff; }
         .range-table { border-collapse: collapse; min-width: 100%; font-size: 11px; }
         .range-table th { background: #f1f3f5; padding: 10px; border: 1px solid #dee2e6; white-space: nowrap; color: #495057; text-transform: uppercase; font-size: 9px; }
         .range-table td { padding: 8px; border: 1px solid #dee2e6; text-align: center; white-space: nowrap; }
         .highlight { background: #fff3cd !important; font-weight: bold; }
+
+        .item-card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; margin-top: 15px; overflow: hidden; }
+        .result-row { display: flex; border-bottom: 1px solid #f0f0f0; }
+        .label { background: #f8f9fa; color: #666; padding: 10px; width: 40%; font-weight: bold; font-size: 10px; text-transform: uppercase; border-right: 1px solid #f0f0f0; }
+        .value { padding: 10px; width: 60%; font-size: 14px; word-break: break-all; }
 
         input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
@@ -190,19 +190,18 @@
         const firstMatch = currentFoundItems[0];
         const selectedStore = document.getElementById('storeFilter').value;
         
-        // Find Column Names
         const rangeColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
         const depColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
         
-        // Determine Logic Scope: Is it Department level or Range level?
+        const rangeVal = firstMatch[rangeColName];
+        const depVal = firstMatch[depColName];
+
         const useDepLevel = currentViewType === 'DEP';
         const filterKey = useDepLevel ? depColName : rangeColName;
         const filterValue = firstMatch[filterKey];
-        
-        // Default to YTD sales for DEP view, otherwise match toggle
         const targetCol = (currentViewType === 'MTD') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
 
-        // 1. DATA GATHERING
+        // 1. DATA GATHERING (Current Scope: Either Range or Dept)
         const globalScopeRows = csvData.filter(row => row[filterKey] === filterValue);
         const distinctStores = [...new Set(globalScopeRows.map(r => r.Store))].length || 1;
         
@@ -213,23 +212,19 @@
         let localTotal = 0;
         localScopeRows.forEach(row => localTotal += cleanNum(row[targetCol]));
 
-        // 2. SORTING & RANKING
+        // 2. RANGE CONTRIBUTION CALCULATION (Specific for DEP view)
+        let rangeContributionPct = 0;
+        if (useDepLevel) {
+            const localRangeRows = localScopeRows.filter(row => row[rangeColName] === rangeVal);
+            let localRangeTotal = 0;
+            localRangeRows.forEach(row => localRangeTotal += cleanNum(row[targetCol]));
+            rangeContributionPct = localTotal > 0 ? ((localRangeTotal / localTotal) * 100).toFixed(1) : 0;
+        }
+
+        // 3. SORTING & RANKING
         let sorted = [...localScopeRows].sort((a, b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
         const topItemCode = sorted.length > 0 ? sorted[0].Item_Code : null;
         const lowItemCode = sorted.length > 1 ? sorted[sorted.length - 1].Item_Code : null;
-
-        // 3. INSIGHT BANNER
-        let adviceHtml = "";
-        const levelLabel = useDepLevel ? "Department" : "Range";
-        if (localScopeRows.length > 1) {
-            let top2Sales = cleanNum(sorted[0]?.[targetCol]) + cleanNum(sorted[1]?.[targetCol]);
-            let sharePct = localTotal > 0 ? (top2Sales / localTotal) * 100 : 0;
-            if (sharePct > 60) {
-                adviceHtml = `<div class="insight-banner"><b>💡 ${levelLabel} Insight:</b> Very high reliance on top items (${sharePct.toFixed(0)}% of total). Ensure backup stock is available for top SKUs.</div>`;
-            } else {
-                adviceHtml = `<div class="insight-banner"><b>✅ ${levelLabel} Balanced:</b> Sales are healthy and spread across multiple items.</div>`;
-            }
-        }
 
         // 4. UI CONSTRUCTION
         const benchmark = (globalTotal/distinctStores) > 0 ? (localTotal / (globalTotal/distinctStores)).toFixed(2) : 0;
@@ -237,7 +232,6 @@
         
         let output = `<h3>${useDepLevel ? 'Department' : 'Range'}: ${filterValue}</h3>`;
         
-        // THREE-WAY TOGGLE
         output += `
         <div class="toggle-group">
             <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP Total</button>
@@ -245,7 +239,10 @@
             <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">Range YTD</button>
         </div>`;
 
-        output += adviceHtml;
+        // Insight Banner
+        if (useDepLevel) {
+            output += `<div class="insight-banner"><b>📊 Contribution Insight:</b> The range <b>"${rangeVal}"</b> accounts for <b>${rangeContributionPct}%</b> of this department's total sales.</div>`;
+        }
 
         output += `<div class="summary-section"><div class="summary-title">Global ${useDepLevel ? 'Dept' : 'Range'} Total</div><div class="summary-box">
             <div class="summary-item"><div class="summary-label">Avg Store Sale</div><div class="summary-value">${Math.round(globalTotal/distinctStores).toLocaleString()}</div></div>
@@ -254,10 +251,10 @@
 
         if (selectedStore !== "") {
             output += `<div class="summary-section">
-                <div class="summary-title">Local Store Performance <span>Index: ${benchmark}x</span></div>
+                <div class="summary-title">Store: ${selectedStore} <span>Index: ${benchmark}x</span></div>
                 <div class="summary-box">
                     <div class="summary-item"><div class="summary-label">Store Total</div><div class="summary-value">${localTotal.toLocaleString()}</div></div>
-                    <div class="summary-item"><div class="summary-label">Market Share</div><div class="summary-value">${((localTotal/globalTotal)*100).toFixed(1)}%</div></div>
+                    <div class="summary-item"><div class="summary-label">${useDepLevel ? 'Range vs Dept' : 'Market Share'}</div><div class="summary-value">${useDepLevel ? rangeContributionPct + '%' : ((localTotal/globalTotal)*100).toFixed(1) + '%'}</div></div>
                 </div>
             </div>`;
         }
