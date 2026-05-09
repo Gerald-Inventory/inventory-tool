@@ -20,9 +20,9 @@
         .btn-group { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
         button { flex: 1; min-width: 100px; background: #007bff; color: white; border: none; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; }
         
-        .toggle-group { display: flex; background: #eee; border-radius: 8px; padding: 4px; margin-bottom: 15px; }
-        .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; }
-        .toggle-btn.active { background: white; color: #007bff; shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .toggle-group { display: flex; background: #eee; border-radius: 8px; padding: 4px; margin-bottom: 15px; gap: 4px; }
+        .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; font-size: 12px; }
+        .toggle-btn.active { background: white; color: #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
         #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; cursor: pointer; }
 
@@ -81,7 +81,7 @@
         <label>Enter Item Code</label>
         <input type="number" id="itemCodeInput" placeholder="Enter code..." oninput="searchCSV()" inputmode="numeric">
         
-        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW RANGE PERFORMANCE</button>
+        <button id="rangeBtn" onclick="showRangeDetails('YTD')">📊 VIEW PERFORMANCE ANALYSIS</button>
 
         <div id="result"></div>
         <div id="rangeResult"></div>
@@ -93,7 +93,7 @@
     let csvData = [];
     let html5QrCode;
     let currentFoundItems = [];
-    let currentViewType = 'YTD'; // Default view
+    let currentViewType = 'YTD'; 
 
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
@@ -177,11 +177,7 @@
                 html += '</div>';
             });
             res.innerHTML = html;
-
-            const rangeCol = Object.keys(currentFoundItems[0]).find(k => k.toLowerCase().includes('range'));
-            if (rangeCol && currentFoundItems[0][rangeCol]) {
-                btn.style.display = "block";
-            }
+            btn.style.display = "block";
         } else {
             res.innerHTML = "<p style='color:red; text-align:center;'>Product Not Found</p>";
         }
@@ -192,64 +188,76 @@
         currentViewType = viewType || currentViewType;
         
         const firstMatch = currentFoundItems[0];
-        const rangeColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
-        const rangeValue = firstMatch[rangeColName];
         const selectedStore = document.getElementById('storeFilter').value;
-        const targetCol = currentViewType === 'YTD' ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
+        
+        // Find Column Names
+        const rangeColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
+        const depColName = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
+        
+        // Determine Logic Scope: Is it Department level or Range level?
+        const useDepLevel = currentViewType === 'DEP';
+        const filterKey = useDepLevel ? depColName : rangeColName;
+        const filterValue = firstMatch[filterKey];
+        
+        // Default to YTD sales for DEP view, otherwise match toggle
+        const targetCol = (currentViewType === 'MTD') ? 'TY_MTD_Sale_Value' : 'TY_YTD_Sale_Value';
 
         // 1. DATA GATHERING
-        const globalRangeRows = csvData.filter(row => row[rangeColName] === rangeValue);
-        const distinctStores = [...new Set(globalRangeRows.map(r => r.Store))].length || 1;
+        const globalScopeRows = csvData.filter(row => row[filterKey] === filterValue);
+        const distinctStores = [...new Set(globalScopeRows.map(r => r.Store))].length || 1;
         
         let globalTotal = 0;
-        globalRangeRows.forEach(row => globalTotal += cleanNum(row[targetCol]));
+        globalScopeRows.forEach(row => globalTotal += cleanNum(row[targetCol]));
 
-        const localRangeRows = globalRangeRows.filter(row => selectedStore === "" || row.Store === selectedStore);
+        const localScopeRows = globalScopeRows.filter(row => selectedStore === "" || row.Store === selectedStore);
         let localTotal = 0;
-        localRangeRows.forEach(row => localTotal += cleanNum(row[targetCol]));
+        localScopeRows.forEach(row => localTotal += cleanNum(row[targetCol]));
 
-        // 2. PARETO & SKUs
-        let sorted = [...localRangeRows].sort((a, b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
+        // 2. SORTING & RANKING
+        let sorted = [...localScopeRows].sort((a, b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
         const topItemCode = sorted.length > 0 ? sorted[0].Item_Code : null;
         const lowItemCode = sorted.length > 1 ? sorted[sorted.length - 1].Item_Code : null;
 
+        // 3. INSIGHT BANNER
         let adviceHtml = "";
-        if (localRangeRows.length > 1) {
+        const levelLabel = useDepLevel ? "Department" : "Range";
+        if (localScopeRows.length > 1) {
             let top2Sales = cleanNum(sorted[0]?.[targetCol]) + cleanNum(sorted[1]?.[targetCol]);
             let sharePct = localTotal > 0 ? (top2Sales / localTotal) * 100 : 0;
-            if (sharePct > 70 && localRangeRows.length > 4) {
-                adviceHtml = `<div class="insight-banner"><b>💡 ${currentViewType} Advice:</b> Top 2 items are driving ${sharePct.toFixed(0)}% of sales. Your range is "top-heavy".</div>`;
+            if (sharePct > 60) {
+                adviceHtml = `<div class="insight-banner"><b>💡 ${levelLabel} Insight:</b> Very high reliance on top items (${sharePct.toFixed(0)}% of total). Ensure backup stock is available for top SKUs.</div>`;
             } else {
-                adviceHtml = `<div class="insight-banner"><b>✅ Range Healthy:</b> Sales are well-distributed across the range for ${currentViewType}.</div>`;
+                adviceHtml = `<div class="insight-banner"><b>✅ ${levelLabel} Balanced:</b> Sales are healthy and spread across multiple items.</div>`;
             }
         }
 
-        // 3. UI RENDERING
+        // 4. UI CONSTRUCTION
         const benchmark = (globalTotal/distinctStores) > 0 ? (localTotal / (globalTotal/distinctStores)).toFixed(2) : 0;
-        const allHeaders = Object.keys(globalRangeRows[0]);
+        const allHeaders = Object.keys(globalScopeRows[0]);
         
-        let output = `<h3>Performance: ${rangeValue}</h3>`;
+        let output = `<h3>${useDepLevel ? 'Department' : 'Range'}: ${filterValue}</h3>`;
         
-        // MTD/YTD TOGGLE
+        // THREE-WAY TOGGLE
         output += `
         <div class="toggle-group">
-            <button class="toggle-btn ${currentViewType === 'MTD' ? 'active' : ''}" onclick="showRangeDetails('MTD')">MTD View</button>
-            <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">YTD View</button>
+            <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP Total</button>
+            <button class="toggle-btn ${currentViewType === 'MTD' ? 'active' : ''}" onclick="showRangeDetails('MTD')">Range MTD</button>
+            <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">Range YTD</button>
         </div>`;
 
         output += adviceHtml;
 
-        output += `<div class="summary-section"><div class="summary-title">Global ${currentViewType} Total</div><div class="summary-box">
-            <div class="summary-item"><div class="summary-label">Stores</div><div class="summary-value">${distinctStores}</div></div>
-            <div class="summary-item"><div class="summary-label">Total Sales</div><div class="summary-value">${globalTotal.toLocaleString()}</div></div>
+        output += `<div class="summary-section"><div class="summary-title">Global ${useDepLevel ? 'Dept' : 'Range'} Total</div><div class="summary-box">
+            <div class="summary-item"><div class="summary-label">Avg Store Sale</div><div class="summary-value">${Math.round(globalTotal/distinctStores).toLocaleString()}</div></div>
+            <div class="summary-item"><div class="summary-label">Total Volume</div><div class="summary-value">${globalTotal.toLocaleString()}</div></div>
         </div></div>`;
 
         if (selectedStore !== "") {
             output += `<div class="summary-section">
-                <div class="summary-title">Store: ${selectedStore} <span>Index: ${benchmark}x</span></div>
+                <div class="summary-title">Local Store Performance <span>Index: ${benchmark}x</span></div>
                 <div class="summary-box">
                     <div class="summary-item"><div class="summary-label">Store Total</div><div class="summary-value">${localTotal.toLocaleString()}</div></div>
-                    <div class="summary-item"><div class="summary-label">Contribution</div><div class="summary-value">${((localTotal/globalTotal)*100).toFixed(1)}%</div></div>
+                    <div class="summary-item"><div class="summary-label">Market Share</div><div class="summary-value">${((localTotal/globalTotal)*100).toFixed(1)}%</div></div>
                 </div>
             </div>`;
         }
@@ -258,14 +266,14 @@
         allHeaders.forEach(h => output += `<th>${h.replace(/_/g, ' ')}</th>`);
         output += `</tr></thead><tbody>`;
         
-        localRangeRows.forEach(row => {
+        localScopeRows.forEach(row => {
             const isSearched = (row.Item_Code == document.getElementById('itemCodeInput').value.trim());
             output += `<tr class="${isSearched ? 'highlight' : ''}">`;
             allHeaders.forEach(h => {
                 let cellVal = row[h] || '-';
                 if (h === 'Item_Code') {
                     if (row.Item_Code === topItemCode) cellVal += `<span class="badge badge-top">Top</span>`;
-                    if (row.Item_Code === lowItemCode && sorted.length > 2) cellVal += `<span class="badge badge-low">Low</span>`;
+                    if (row.Item_Code === lowItemCode && sorted.length > 3) cellVal += `<span class="badge badge-low">Low</span>`;
                 }
                 output += `<td>${cellVal}</td>`;
             });
