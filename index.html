@@ -62,6 +62,7 @@
 
         input, select { width: 100%; padding: 12px; margin: 5px 0 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         label { font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; }
+        .sub-filter-label { margin-top: 10px; display: block; font-size: 10px; color: #17a2b8; }
     </style>
 </head>
 <body>
@@ -103,6 +104,7 @@
     let currentViewType = 'YTD'; 
     let daysMTD = 1;
     let daysYTD = 1;
+    let selectedSubclassFilter = "";
 
     function checkPassword() {
         if (document.getElementById('passInput').value === PIN) {
@@ -147,6 +149,7 @@
         document.getElementById('result').innerHTML = "";
         document.getElementById('rangeResult').innerHTML = "";
         document.getElementById('rangeBtn').style.display = "none";
+        selectedSubclassFilter = "";
     }
 
     function cleanNum(val) {
@@ -159,6 +162,11 @@
     function updateAnalysisDays() {
         daysMTD = parseInt(document.getElementById('inputMTD').value) || 1;
         daysYTD = parseInt(document.getElementById('inputYTD').value) || 1;
+        showRangeDetails(currentViewType);
+    }
+
+    function updateSubFilter(val) {
+        selectedSubclassFilter = val;
         showRangeDetails(currentViewType);
     }
 
@@ -205,7 +213,9 @@
         
         const rangeVal = firstMatch[rangeCol];
         const depVal = firstMatch[depCol];
-        const subVal = firstMatch[subCol];
+
+        // Populate Subclass Dropdown options based on the Department
+        const subclassesInDep = [...new Set(csvData.filter(r => r[depCol] === depVal).map(r => r[subCol]))].sort();
 
         const activeDays = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? daysYTD : daysMTD;
         const targetCol = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
@@ -219,6 +229,7 @@
             <button class="action-btn set-btn" onclick="updateAnalysisDays()">SET</button>
             <button class="action-btn reset-day-btn" onclick="clearDayInputs()">CLR</button>
         </div>
+        
         <div class="toggle-group">
             <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP SUMMARY</button>
             <button class="toggle-btn ${currentViewType === 'SUB' ? 'active' : ''}" onclick="showRangeDetails('SUB')">SUB SUMMARY</button>
@@ -226,17 +237,30 @@
             <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">RANGE YTD</button>
         </div>`;
 
+        // Add Subclass Filter dropdown if in SUB view
+        if (currentViewType === 'SUB') {
+            output += `<label class="sub-filter-label">Filter Subclass Summary By:</label>
+            <select id="subclassFilter" onchange="updateSubFilter(this.value)">
+                <option value="">-- All Subclasses in Dept --</option>`;
+            subclassesInDep.forEach(s => {
+                output += `<option value="${s}" ${selectedSubclassFilter === s ? 'selected' : ''}>${s}</option>`;
+            });
+            output += `</select>`;
+        }
+
         if (currentViewType === 'DEP' || currentViewType === 'SUB') {
             const isSub = currentViewType === 'SUB';
             const filterCol = isSub ? subCol : depCol;
-            const filterVal = isSub ? subVal : depVal;
+            // If Subclass filter is active, use it, otherwise use the item's default dep/sub
+            const filterVal = (isSub && selectedSubclassFilter !== "") ? selectedSubclassFilter : (isSub ? firstMatch[subCol] : depVal);
+            
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
 
             output += `<div class="range-container"><table class="range-table">
                 <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sales</th><th>${isSub ? 'Subclass' : 'Dept'} Total</th><th>Contr %</th></tr></thead><tbody>`;
             
             allStores.forEach(s => {
-                const sRows = csvData.filter(r => r.Store === s && r[filterCol] === filterVal);
+                const sRows = csvData.filter(r => r.Store === s && (selectedSubclassFilter !== "" ? r[subCol] === selectedSubclassFilter : r[filterCol] === filterVal));
                 let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
                 let dS = 0; sRows.forEach(r => dS += cleanNum(r[targetCol]));
                 const storeSPD = Math.round(rS / activeDays);
@@ -253,7 +277,6 @@
             const rangeRows = csvData.filter(row => row[rangeCol] === rangeVal);
             let rangeTotal = 0; rangeRows.forEach(r => rangeTotal += cleanNum(r[targetCol]));
 
-            // Contribution calculation against Department (Default)
             const deptRows = csvData.filter(row => row[depCol] === depVal);
             let deptTotal = 0; deptRows.forEach(r => deptTotal += cleanNum(r[targetCol]));
             const contributionPct = deptTotal > 0 ? ((rangeTotal / deptTotal) * 100).toFixed(1) : 0;
