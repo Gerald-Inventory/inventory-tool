@@ -30,7 +30,7 @@
         .reset-day-btn { background: #e83e8c !important; }
 
         .toggle-group { display: flex; background: #eee; border-radius: 8px; padding: 4px; margin-bottom: 15px; gap: 4px; }
-        .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; font-size: 11px; }
+        .toggle-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 6px; cursor: pointer; font-weight: bold; color: #666; font-size: 10px; }
         .toggle-btn.active { background: white; color: #007bff; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
 
         #rangeBtn { display: none; width: 100%; background: #17a2b8; color: white; padding: 15px; border-radius: 8px; font-weight: bold; margin: 10px 0; border: none; cursor: pointer; }
@@ -43,7 +43,6 @@
         .summary-label { font-size: 9px; font-weight: 800; color: #6c757d; text-transform: uppercase; }
         .summary-value { font-size: 15px; font-weight: bold; color: #117a8b; }
 
-        /* Badges inside Item Code Cell */
         .badge { padding: 2px 4px; border-radius: 3px; font-size: 8px; text-transform: uppercase; font-weight: 900; display: block; margin: 4px auto 0 auto; width: fit-content; }
         .badge-top { background: #28a745; color: white; }
         .badge-low { background: #dc3545; color: white; }
@@ -198,14 +197,18 @@
         
         const firstMatch = currentFoundItems[0];
         const selectedStore = document.getElementById('storeFilter').value;
+        
         const rangeCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('range'));
         const depCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('dep'));
+        const subCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('subclass'));
         const itemCodeCol = Object.keys(firstMatch).find(k => k.toLowerCase().includes('item_code'));
+        
         const rangeVal = firstMatch[rangeCol];
         const depVal = firstMatch[depCol];
+        const subVal = firstMatch[subCol];
 
-        const activeDays = (currentViewType === 'YTD') ? daysYTD : daysMTD;
-        const targetCol = (currentViewType === 'YTD') ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
+        const activeDays = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? daysYTD : daysMTD;
+        const targetCol = (currentViewType === 'YTD' || currentViewType === 'DEP' || currentViewType === 'SUB') ? 'TY_YTD_Sale_Value' : 'TY_MTD_Sale_Value';
 
         let output = `<h3 style="color:#17a2b8; margin-top:20px;">Range: ${rangeVal}</h3>`;
         
@@ -218,16 +221,22 @@
         </div>
         <div class="toggle-group">
             <button class="toggle-btn ${currentViewType === 'DEP' ? 'active' : ''}" onclick="showRangeDetails('DEP')">DEP SUMMARY</button>
+            <button class="toggle-btn ${currentViewType === 'SUB' ? 'active' : ''}" onclick="showRangeDetails('SUB')">SUB SUMMARY</button>
             <button class="toggle-btn ${currentViewType === 'MTD' ? 'active' : ''}" onclick="showRangeDetails('MTD')">RANGE MTD</button>
             <button class="toggle-btn ${currentViewType === 'YTD' ? 'active' : ''}" onclick="showRangeDetails('YTD')">RANGE YTD</button>
         </div>`;
 
-        if (currentViewType === 'DEP') {
+        if (currentViewType === 'DEP' || currentViewType === 'SUB') {
+            const isSub = currentViewType === 'SUB';
+            const filterCol = isSub ? subCol : depCol;
+            const filterVal = isSub ? subVal : depVal;
             const allStores = [...new Set(csvData.map(r => r.Store))].sort();
+
             output += `<div class="range-container"><table class="range-table">
-                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sales</th><th>Dept Total</th><th>Range Contr %</th></tr></thead><tbody>`;
+                <thead><tr><th>Store</th><th>Range SPD</th><th>Range Sales</th><th>${isSub ? 'Subclass' : 'Dept'} Total</th><th>Contr %</th></tr></thead><tbody>`;
+            
             allStores.forEach(s => {
-                const sRows = csvData.filter(r => r.Store === s && r[depCol] === depVal);
+                const sRows = csvData.filter(r => r.Store === s && r[filterCol] === filterVal);
                 let rS = 0; sRows.filter(r => r[rangeCol] === rangeVal).forEach(r => rS += cleanNum(r[targetCol]));
                 let dS = 0; sRows.forEach(r => dS += cleanNum(r[targetCol]));
                 const storeSPD = Math.round(rS / activeDays);
@@ -241,16 +250,16 @@
             });
             output += `</tbody></table></div>`;
         } else {
-            const deptRows = csvData.filter(row => row[depCol] === depVal);
-            let deptTotal = 0; deptRows.forEach(r => deptTotal += cleanNum(r[targetCol]));
-
             const rangeRows = csvData.filter(row => row[rangeCol] === rangeVal);
             let rangeTotal = 0; rangeRows.forEach(r => rangeTotal += cleanNum(r[targetCol]));
+
+            // Contribution calculation against Department (Default)
+            const deptRows = csvData.filter(row => row[depCol] === depVal);
+            let deptTotal = 0; deptRows.forEach(r => deptTotal += cleanNum(r[targetCol]));
             const contributionPct = deptTotal > 0 ? ((rangeTotal / deptTotal) * 100).toFixed(1) : 0;
 
             const displayRows = rangeRows.filter(row => selectedStore === "" || row.Store === selectedStore);
             
-            // RANKING LOGIC (Using displayed data)
             let sortedForRank = [...displayRows].sort((a,b) => cleanNum(b[targetCol]) - cleanNum(a[targetCol]));
             const topId = (sortedForRank.length > 0 && cleanNum(sortedForRank[0][targetCol]) > 0) ? sortedForRank[0].Item_Code : null;
             const lowId = (sortedForRank.length > 1) ? sortedForRank[sortedForRank.length - 1].Item_Code : null;
@@ -275,7 +284,6 @@
                 
                 allHeaders.forEach(h => {
                     let cellContent = row[h] || '-';
-                    // IF column is Item Code, check for badge
                     if (h === itemCodeCol) {
                         let badge = "";
                         if (row.Item_Code === topId) badge = `<span class="badge badge-top">TOP</span>`;
